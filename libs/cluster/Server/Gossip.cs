@@ -103,25 +103,25 @@ namespace Garnet.cluster
         public readonly TimeSpan clusterTimeout;
         private volatile int numActiveTasks = 0;
         private SingleWriterMultiReaderLock activeMergeLock;
-        readonly GarnetClusterConnectionStore clusterConnectionStore;
+        public readonly GarnetClusterConnectionStore clusterConnectionStore;
 
         public GossipStats gossipStats;
-        readonly int GossipSamplePercent;
+        readonly int gossipSamplePercent;
 
         public TimeSpan GetClusterTimeout() => clusterTimeout;
-        readonly ConcurrentDictionary<string, long> workerBanList = new ConcurrentDictionary<string, long>();
+        readonly ConcurrentDictionary<string, long> workerBanList = new();
         public readonly CancellationTokenSource ctsGossip = new();
 
         public List<string> GetBanList()
         {
-            List<string> banlist = new List<string>();
+            var banlist = new List<string>();
             foreach (var w in workerBanList)
             {
                 var nodeId = w.Key;
                 var expiry = w.Value;
                 var diff = expiry - DateTimeOffset.UtcNow.Ticks;
 
-                string str = $"{nodeId} : {TimeSpan.FromTicks(diff).Seconds}";
+                var str = $"{nodeId} : {TimeSpan.FromTicks(diff).Seconds}";
                 banlist.Add(str);
             }
             return banlist;
@@ -135,17 +135,16 @@ namespace Garnet.cluster
         public MetricsItem[] GetPrimaryLinkStatus(ClusterConfig config)
         {
             var primaryId = config.GetLocalNodePrimaryId();
-            var primaryLinkStatus = new MetricsItem[2];
+            var primaryLinkStatus = new MetricsItem[2]
+            {
+                new("master_link_status", "down"),
+                new("master_last_io_seconds_ago", "0")
+            };
 
-            primaryLinkStatus[0] = new("master_link_status", "down");
-            primaryLinkStatus[1] = new("master_last_io_seconds_ago", "0");
             if (primaryId != null)
-                clusterConnectionStore.GetConnectionInfo(primaryId, ref primaryLinkStatus);
+                _ = clusterConnectionStore.GetConnectionInfo(primaryId, ref primaryLinkStatus);
             return primaryLinkStatus;
         }
-
-        private bool Expired(long expiry)
-            => expiry < DateTimeOffset.UtcNow.Ticks;
 
         /// <summary>
         /// Pause merge config ops by setting numActiveMerge to MinValue.
@@ -178,14 +177,14 @@ namespace Garnet.cluster
         private void TryStartGossipTasks()
         {
             // Start background task for gossip protocol
-            for (int i = 2; i <= CurrentConfig.NumWorkers; i++)
+            for (var i = 2; i <= CurrentConfig.NumWorkers; i++)
             {
                 var (address, port) = CurrentConfig.GetWorkerAddress((ushort)i);
                 RunMeetTask(address, port);
             }
 
-            Interlocked.Increment(ref numActiveTasks);
-            Task.Run(GossipMain);
+            _ = Interlocked.Increment(ref numActiveTasks);
+            _ = Task.Run(GossipMain);
         }
 
         /// <summary>
@@ -240,14 +239,15 @@ namespace Garnet.cluster
             var conf = CurrentConfig;
             var nodeId = conf.GetWorkerNodeIdFromAddress(address, port);
             MemoryResult<byte> resp = default;
-            bool created = false;
+            var created = false;
 
             gossipStats.UpdateMeetRequestsRecv();
             try
             {
                 if (nodeId != null)
-                    clusterConnectionStore.GetConnection(nodeId, out gsn);
+                    _ = clusterConnectionStore.GetConnection(nodeId, out gsn);
 
+                // Have to initialize object if not already initialized
                 if (gsn == null)
                 {
                     gsn = new GarnetServerNode(this, replicationManager, address, port, tlsOptions?.TlsClientOptions, logger: logger);
@@ -268,7 +268,7 @@ namespace Garnet.cluster
 
                     logger?.LogInformation("MEET {nodeId} {address} {port}", nodeId, address, port);
                     // Merge without a check because node is trusted as meet was issued by admin
-                    TryMerge(other);
+                    _ = TryMerge(other);
 
                     gossipStats.UpdateMeetRequestsSucceed();
 
@@ -303,13 +303,13 @@ namespace Garnet.cluster
                 var expiry = w.Value;
 
                 // Check if ban on worker has expired or not
-                if (!Expired(expiry))
+                if (DateTimeOffset.UtcNow.Ticks < expiry)
                 {
                     // Remove connection for banned worker
-                    clusterConnectionStore.TryRemove(nodeId);
+                    _ = clusterConnectionStore.TryRemove(nodeId);
                 }
                 else // Remove worker from ban list
-                    workerBanList.TryRemove(nodeId, out var _);
+                    _ = workerBanList.TryRemove(nodeId, out var _);
             }
         }
 
@@ -375,12 +375,12 @@ namespace Garnet.cluster
 
                     gossipStats.gossip_timeout_count++;
                     logger?.LogWarning("GOSSIP to remote node [{nodeId} {address}:{port}] timeout!", currNode.nodeid, currNode.address, currNode.port);
-                    clusterConnectionStore.TryRemove(currNode.nodeid);
+                    _ = clusterConnectionStore.TryRemove(currNode.nodeid);
                 }
                 catch (Exception ex)
                 {
                     logger?.LogWarning(ex, "GOSSIP to remote node [{nodeId} {address} {port}] failed!", currNode.nodeid, currNode.address, currNode.port);
-                    clusterConnectionStore.TryRemove(currNode.nodeid);
+                    _ = clusterConnectionStore.TryRemove(currNode.nodeid);
                     gossipStats.gossip_failed_count++;
                 }
             }
@@ -392,16 +392,16 @@ namespace Garnet.cluster
         public void GossipSampleSend()
         {
             var nodeCount = clusterConnectionStore.Count;
-            int fraction = (int)(Math.Ceiling(nodeCount * (GossipSamplePercent / 100.0f)));
-            int count = Math.Max(Math.Min(1, nodeCount), fraction);
+            var fraction = (int)(Math.Ceiling(nodeCount * (gossipSamplePercent / 100.0f)));
+            var count = Math.Max(Math.Min(1, nodeCount), fraction);
 
-            long startTime = DateTimeOffset.UtcNow.Ticks;
+            var startTime = DateTimeOffset.UtcNow.Ticks;
             while (count > 0)
             {
-                long minSend = startTime;
+                var minSend = startTime;
                 GarnetServerNode currNode = null;
 
-                for (int i = 0; i < 3; i++)
+                for (var i = 0; i < 3; i++)
                 {
                     // Pick the node with earliest send timestamp
                     if (clusterConnectionStore.GetRandomConnection(out var c) && c.GossipSend < minSend)
@@ -426,12 +426,12 @@ namespace Garnet.cluster
 
                     gossipStats.gossip_timeout_count++;
                     logger?.LogWarning("GOSSIP to remote node [{nodeId} {address}:{port}] timeout!", currNode.nodeid, currNode.address, currNode.port);
-                    clusterConnectionStore.TryRemove(currNode.nodeid);
+                    _ = clusterConnectionStore.TryRemove(currNode.nodeid);
                 }
                 catch (Exception ex)
                 {
                     logger?.LogError(ex, "GOSSIP to remote node [{nodeId} {address} {port}] failed!", currNode.nodeid, currNode.address, currNode.port);
-                    clusterConnectionStore.TryRemove(currNode.nodeid);
+                    _ = clusterConnectionStore.TryRemove(currNode.nodeid);
                     gossipStats.gossip_failed_count++;
                 }
 
@@ -446,7 +446,7 @@ namespace Garnet.cluster
         public void TransmitGossip()
         {
             // Choose between full broadcast or sample gossip to few nodes
-            if (GossipSamplePercent == 100)
+            if (gossipSamplePercent == 100)
                 BroadcastGossipSend();
             else
                 GossipSampleSend();
@@ -482,7 +482,7 @@ namespace Garnet.cluster
                 {
                     logger?.LogWarning("Error disposing closing gossip connections {msg}", ex.Message);
                 }
-                Interlocked.Decrement(ref numActiveTasks);
+                _ = Interlocked.Decrement(ref numActiveTasks);
             }
         }
     }

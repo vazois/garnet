@@ -746,28 +746,33 @@ namespace Garnet.cluster
         }
 
         /// <summary>
-        /// 
+        /// Get a list of replicas for given node-id
         /// </summary>
-        /// <param name="nodeid"></param>
-        /// <returns></returns>
+        /// <param name="nodeid">Node-id of primary</param>
+        /// <returns>List of replica node-ids</returns>
         public List<string> GetReplicaIds(string nodeid)
         {
-            List<string> replicas = new();
+            var replicas = new List<string>();
             for (ushort i = 1; i < workers.Length; i++)
             {
-                string replicaOf = workers[i].replicaOfNodeId;
+                var replicaOf = workers[i].replicaOfNodeId;
                 if (replicaOf != null && replicaOf.Equals(nodeid))
                     replicas.Add(workers[i].nodeid);
             }
             return replicas;
         }
 
+        /// <summary>
+        /// Get a list of replica endpoints for given node-id
+        /// </summary>
+        /// <param name="nodeid">Node-id of primary</param>
+        /// <returns>List of replica endpoint pairs</returns>
         public List<(string, int)> GetReplicaEndpoints(string nodeid)
         {
             List<(string, int)> replicaEndpoints = new();
             for (ushort i = 1; i < workers.Length; i++)
             {
-                string replicaOf = workers[i].replicaOfNodeId;
+                var replicaOf = workers[i].replicaOfNodeId;
                 if (replicaOf != null && replicaOf.Equals(nodeid))
                     replicaEndpoints.Add(new(workers[i].address, workers[i].port));
             }
@@ -1021,7 +1026,7 @@ namespace Garnet.cluster
             var slots = GetLocalPrimarySlots();
             var newSlotMap = new HashSlot[MAX_HASH_SLOT_VALUE];
             Array.Copy(slotMap, newSlotMap, slotMap.Length);
-            foreach (int slot in slots)
+            foreach (var slot in slots)
             {
                 newSlotMap[slot]._workerId = 1;
                 newSlotMap[slot]._state = SlotState.STABLE;

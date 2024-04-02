@@ -28,6 +28,8 @@ namespace Garnet.cluster
 
         SingleWriterMultiReaderLock meetLock;
 
+        public GarnetClient client => gc;
+
         public bool IsConnected => gc.IsConnected;
 
         public long GossipSend => gossip_send;
@@ -58,7 +60,15 @@ namespace Garnet.cluster
             this.replicationManager = replicationManager;
             this.address = address;
             this.port = port;
-            this.gc = new GarnetClient(address, port, tlsOptions, sendPageSize: 1 << 17, maxOutstandingTasks: 8, authUsername: clusterManager.clusterProvider.ClusterUsername, authPassword: clusterManager.clusterProvider.ClusterPassword, logger: logger);
+            this.gc = new GarnetClient(
+                address,
+                port,
+                tlsOptions,
+                sendPageSize: 1 << 17,
+                maxOutstandingTasks: 8,
+                authUsername: clusterManager.clusterProvider.ClusterUsername,
+                authPassword: clusterManager.clusterProvider.ClusterPassword,
+                logger: logger);
             this.initialized = 0;
             this.logger = logger;
             ResetCts();
@@ -191,7 +201,7 @@ namespace Garnet.cluster
             return false;
         }
 
-        private Task Gossip(byte[] configByteArray)
+        public Task Gossip(byte[] configByteArray)
         {
             return gc.Gossip(configByteArray).ContinueWith(t =>
             {

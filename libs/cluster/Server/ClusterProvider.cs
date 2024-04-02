@@ -291,7 +291,7 @@ namespace Garnet.cluster
             {
             retry:
                 var currentEpoch = GarnetCurrentEpoch;
-                Thread.Yield();
+                _ = Thread.Yield();
                 var sessions = server.ActiveClusterSessions();
                 foreach (var s in sessions)
                 {

@@ -2447,7 +2447,7 @@ namespace Garnet.test.cluster
         {
             try
             {
-                var failoverState = GetReplicationInfo(endPoint, new[] { ReplicationInfoItem.PRIMARY_FAILOVER_STATE }, logger)[0].Item2;
+                var failoverState = GetReplicationInfo(endPoint, [ReplicationInfoItem.PRIMARY_FAILOVER_STATE], logger)[0].Item2;
                 return failoverState;
             }
             catch (Exception ex)
@@ -2466,13 +2466,12 @@ namespace Garnet.test.cluster
             var server = redis.GetServer(endPoint);
             try
             {
-                //var result = (string)server.Execute("info", "replication");
                 var result = server.InfoRawAsync("replication").Result;
                 return ProcessReplicationInfo(result, infoItems);
             }
             catch (Exception ex)
             {
-                logger?.LogError(ex, "An error has occured; GetReplicationInfo");
+                logger?.LogError(ex, "An error has occurred; GetReplicationInfo");
                 Assert.Fail(ex.Message);
             }
             return null;

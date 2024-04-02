@@ -99,7 +99,7 @@ namespace Garnet.cluster
             gossipDelay = TimeSpan.FromSeconds(opts.GossipDelay);
             clusterTimeout = opts.ClusterTimeout <= 0 ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds(opts.ClusterTimeout);
             numActiveTasks = 0;
-            GossipSamplePercent = opts.GossipSamplePercent;
+            gossipSamplePercent = opts.GossipSamplePercent;
         }
 
         /// <summary>
