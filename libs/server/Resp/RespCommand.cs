@@ -816,6 +816,10 @@ namespace Garnet.server
                                 {
                                     return (RespCommand.SUBSCRIBE, 0);
                                 }
+                                else if (*(ulong*)(ptr + 4) == MemoryMarshal.Read<ulong>("SISMEMBE"u8) && *(uint*)(ptr + 11) == MemoryMarshal.Read<uint>("ER\r\n"u8))
+                                {
+                                    return (RespCommand.Set, (byte)SetOperation.SISMEMBER);
+                                }
                                 else if (*(ulong*)(ptr + 4) == MemoryMarshal.Read<ulong>("ZLEXCOUN"u8) && *(uint*)(ptr + 11) == MemoryMarshal.Read<uint>("NT\r\n"u8))
                                 {
                                     return (RespCommand.SortedSet, (byte)SortedSetOperation.ZLEXCOUNT);
@@ -883,6 +887,10 @@ namespace Garnet.server
                                 else if (*(ulong*)(ptr + 2) == MemoryMarshal.Read<ulong>("1\r\nBITFI"u8) && *(ulong*)(ptr + 10) == MemoryMarshal.Read<ulong>("ELD_RO\r\n"u8))
                                 {
                                     return (RespCommand.BITFIELD_RO, 0);
+                                }
+                                else if (*(ulong*)(ptr + 2) == MemoryMarshal.Read<ulong>("1\r\nSRAND"u8) && *(ulong*)(ptr + 10) == MemoryMarshal.Read<ulong>("MEMBER\r\n"u8))
+                                {
+                                    return (RespCommand.Set, (byte)SetOperation.SRANDMEMBER);
                                 }
                                 break;
 
