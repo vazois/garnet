@@ -199,7 +199,7 @@ namespace Garnet.cluster
             return false;
         }
 
-        public Task Gossip(byte[] configByteArray)
+        private Task Gossip(byte[] configByteArray)
         {
             return gc.Gossip(configByteArray).ContinueWith(t =>
             {
