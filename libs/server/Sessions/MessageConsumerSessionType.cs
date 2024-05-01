@@ -11,6 +11,10 @@ namespace Garnet.server
         /// <summary>
         /// Session of type RespServerSession
         /// </summary>
-        RespSessionConsumer
+        RespSessionConsumer,
+        /// <summary>
+        /// Session of type ClusterSession
+        /// </summary>
+        ClusterSessionConsumer,
     }
 }

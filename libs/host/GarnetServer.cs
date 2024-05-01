@@ -23,6 +23,7 @@ namespace Garnet
 
         private readonly GarnetServerOptions opts;
         private IGarnetServer server;
+        private IGarnetServer cluster;
         private TsavoriteKV<SpanByte, SpanByte> store;
         private TsavoriteKV<byte[], IGarnetObject> objectStore;
         private IDevice aofDevice;
@@ -287,6 +288,13 @@ namespace Garnet
             Store = new StoreApi(storeWrapper);
 
             server.Register(WireFormat.ASCII, Provider);
+
+            // Create separate port for listening to cluster ops
+            if (opts.EnableCluster)
+            {
+                cluster = new GarnetClusterTcp(opts.Address, opts.Port + 10000, 0, opts.TlsOptions, opts.NetworkSendThrottleMax, logger);
+                cluster.Register(WireFormat.ASCII, Provider);
+            }
         }
 
         /// <summary>
@@ -295,6 +303,7 @@ namespace Garnet
         public void Start()
         {
             Provider.Recover();
+            cluster?.Start();
             server.Start();
             Provider.Start();
             if (!opts.QuietMode)
@@ -331,6 +340,7 @@ namespace Garnet
         private void InternalDispose()
         {
             Provider?.Dispose();
+            cluster?.Dispose();
             server.Dispose();
             broker?.Dispose();
             store.Dispose();
