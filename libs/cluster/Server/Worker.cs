@@ -65,7 +65,12 @@ namespace Garnet.cluster
         /// <summary>
         /// Hostname of this instance
         /// </summary>
-        public string hostname;
+        public string Hostname;
+
+        /// <summary>
+        /// Cluster port
+        /// </summary>
+        public int ClusterPort => Port + ClusterConfig.ClusterPortOffset;
 
         /// <summary>
         /// ToString

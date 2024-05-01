@@ -138,7 +138,7 @@ namespace GarnetClusterManagement
             workers[0].Role = NodeRole.UNASSIGNED;
             workers[0].ReplicaOfNodeId = string.Empty;
             workers[0].ReplicationOffset = 0;
-            workers[0].hostname = null;
+            workers[0].Hostname = null;
         }
 
         private static List<int> GetSlotSequence(List<(int, int)> slotRanges)
@@ -168,7 +168,7 @@ namespace GarnetClusterManagement
             workers[currentWorkerIndex].ConfigEpoch = configEpoch;
             workers[currentWorkerIndex].Role = Role;
             workers[currentWorkerIndex].ReplicaOfNodeId = replicaOfNodeId;
-            workers[currentWorkerIndex].hostname = hostname;
+            workers[currentWorkerIndex].Hostname = hostname;
             if (slots != null)
             {
                 foreach (int slot in GetSlotSequence(slots))
@@ -226,7 +226,7 @@ namespace GarnetClusterManagement
             //<slot> <slot> ... <slot>
 
             return $"{workers[workerId].Nodeid} " +
-                $"{workers[workerId].Address}:{workers[workerId].Port}@{workers[workerId].Port + 10000},{workers[workerId].hostname} " +
+                $"{workers[workerId].Address}:{workers[workerId].Port}@{workers[workerId].Port + 10000},{workers[workerId].Hostname} " +
                 $"{(workerId == 1 ? "myself," : "")}{(workers[workerId].Role == NodeRole.PRIMARY ? "master" : "slave")} " +
                 $"{(workers[workerId].Role == NodeRole.REPLICA ? workers[workerId].ReplicaOfNodeId : "-")} " +
                 $"0 " +

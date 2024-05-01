@@ -26,6 +26,11 @@ namespace Garnet.cluster
         public static readonly int MAX_HASH_SLOT_VALUE = 16384;
 
         /// <summary>
+        /// Cluster port offset from data port
+        /// </summary>
+        public static readonly int ClusterPortOffset = 10000;
+
+        /// <summary>
         /// 
         /// </summary>
         /// <param name="slot"></param>
@@ -33,9 +38,22 @@ namespace Garnet.cluster
         public static bool OutOfRange(int slot) => slot >= MAX_HASH_SLOT_VALUE || slot < MIN_HASH_SLOT_VALUE;
 
         /// <summary>
+        /// Get cluster port from provided endpoint port
+        /// </summary>
+        /// <param name="port"></param>
+        /// <returns></returns>
+        public static int ClusterPort(int port) => port + ClusterPortOffset;
+
+        /// <summary>
         /// Num of workers assigned
         /// </summary>
         public int NumWorkers => workers.Length - 1;
+
+        /// <summary>
+        /// Get array of workers
+        /// </summary>
+        public Worker[] Workers => workers;
+
 
         readonly HashSlot[] slotMap;
         readonly Worker[] workers;
@@ -59,7 +77,7 @@ namespace Garnet.cluster
             workers[0].Role = NodeRole.UNASSIGNED;
             workers[0].ReplicaOfNodeId = null;
             workers[0].ReplicationOffset = 0;
-            workers[0].hostname = null;
+            workers[0].Hostname = null;
         }
 
         /// <summary>
@@ -111,7 +129,7 @@ namespace Garnet.cluster
             newWorkers[1].Role = role;
             newWorkers[1].ReplicaOfNodeId = replicaOfNodeId;
             newWorkers[1].ReplicationOffset = 0;
-            newWorkers[1].hostname = hostname;
+            newWorkers[1].Hostname = hostname;
             return new ClusterConfig(slotMap, newWorkers);
         }
 
@@ -352,7 +370,7 @@ namespace Garnet.cluster
             if (nodeId == null)
                 return null;
             var workerId = GetWorkerIdFromNodeId(nodeId);
-            return workerId == 0 ? null : workers[workerId].hostname;
+            return workerId == 0 ? null : workers[workerId].Hostname;
         }
 
         private static void slotBitmapSetBit(ref byte[] bitmap, int pos)
@@ -446,15 +464,39 @@ namespace Garnet.cluster
         }
 
         /// <summary>
-        /// Get endpoint of node from node-id.
+        /// Get endpoint of node from node-id for data operations.
         /// </summary>
         /// <param name="nodeid">Node-id.</param>
         /// <returns>Pair of (string,integer) representing endpoint.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public (string address, int port) GetEndpointFromNodeId(string nodeid)
+        public (string address, int port) GetDataEndpoint(string nodeid)
         {
             var workerId = GetWorkerIdFromNodeId(nodeid);
             return (workers[workerId].Address, workers[workerId].Port);
+        }
+
+        /// <summary>
+        /// Get endpoint of node from node-id for cluster operations.
+        /// </summary>
+        /// <param name="nodeid">Node-id.</param>
+        /// <returns>Pair of (string,integer) representing endpoint.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public (string address, int port) GetClusterEndpoint(string nodeid)
+        {
+            var workerId = GetWorkerIdFromNodeId(nodeid);
+            return (workers[workerId].Address, workers[workerId].ClusterPort);
+        }
+
+        /// <summary>
+        /// Get config epoch from slot.
+        /// </summary>
+        /// <param name="slot">Slot number.</param>
+        /// <returns>Long value representing config epoch.</returns>
+        public long GetConfigEpochFromSlot(int slot)
+        {
+            if (slotMap[slot].workerId < 0)
+                return 0;
+            return workers[slotMap[slot].workerId].ConfigEpoch;
         }
         #endregion
 
@@ -488,7 +530,7 @@ namespace Garnet.cluster
             //<slot> <slot> ... <slot>
 
             return $"{workers[workerId].Nodeid} " +
-                $"{workers[workerId].Address}:{workers[workerId].Port}@{workers[workerId].Port + 10000},{workers[workerId].hostname} " +
+                $"{workers[workerId].Address}:{workers[workerId].Port}@{workers[workerId].ClusterPort},{workers[workerId].Hostname} " +
                 $"{(workerId == 1 ? "myself," : "")}{(workers[workerId].Role == NodeRole.PRIMARY ? "master" : "slave")} " +
                 $"{(workers[workerId].Role == NodeRole.REPLICA ? workers[workerId].ReplicaOfNodeId : "-")} " +
                 $"0 " +
@@ -672,7 +714,7 @@ namespace Garnet.cluster
                 var address = workers[currSlotWorkerId].Address;
                 var port = workers[currSlotWorkerId].Port;
                 var nodeid = workers[currSlotWorkerId].Nodeid;
-                var hostname = workers[currSlotWorkerId].hostname;
+                var hostname = workers[currSlotWorkerId].Hostname;
                 var replicas = GetReplicaIds(nodeid);
                 slotEnd--;
                 completeSlotInfo += CreateFormattedSlotInfo(slotStart, slotEnd, address, port, nodeid, hostname, replicas);
@@ -869,7 +911,7 @@ namespace Garnet.cluster
                     other.workers[i].ConfigEpoch,
                     other.workers[i].Role,
                     other.workers[i].ReplicaOfNodeId,
-                    other.workers[i].hostname,
+                    other.workers[i].Hostname,
                     other.GetSlotList(i));
             }
             return newConfig;
@@ -912,7 +954,7 @@ namespace Garnet.cluster
             newWorkers[workerId].ConfigEpoch = configEpoch;
             newWorkers[workerId].Role = role;
             newWorkers[workerId].ReplicaOfNodeId = replicaOfNodeId;
-            newWorkers[workerId].hostname = hostname;
+            newWorkers[workerId].Hostname = hostname;
 
             var newSlotMap = this.slotMap;
             if (slots != null)

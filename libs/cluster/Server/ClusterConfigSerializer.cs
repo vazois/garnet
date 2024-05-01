@@ -45,10 +45,10 @@ namespace Garnet.cluster
                 //4 bytes
                 writer.Write(worker.ReplicationOffset);
                 //1 byte
-                writer.Write(worker.hostname == null ? (byte)0 : (byte)1);
-                if (worker.hostname != null)
+                writer.Write(worker.Hostname == null ? (byte)0 : (byte)1);
+                if (worker.Hostname != null)
                     //256 bytes
-                    writer.Write(worker.hostname);
+                    writer.Write(worker.Hostname);
             }
 
             byte[] byteArray = ms.ToArray();
@@ -128,7 +128,7 @@ namespace Garnet.cluster
 
                 isNull = reader.ReadByte();
                 if (isNull > 0)
-                    newWorkers[i].hostname = reader.ReadString();
+                    newWorkers[i].Hostname = reader.ReadString();
             }
 
             reader.Dispose();
