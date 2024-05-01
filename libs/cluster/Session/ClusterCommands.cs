@@ -285,7 +285,6 @@ namespace Garnet.cluster
                         SendAndReset();
                 }
             }
-
             return parseSuccess;
         }
     }

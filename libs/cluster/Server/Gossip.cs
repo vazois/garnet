@@ -252,7 +252,8 @@ namespace Garnet.cluster
 
                 if (gsn == null)
                 {
-                    gsn = new GarnetServerNode(clusterProvider, address, port, tlsOptions?.TlsClientOptions, logger: logger);
+                    var clusterPort = ClusterConfig.ClusterPort(port);
+                    gsn = new GarnetServerNode(clusterProvider, address, clusterPort, tlsOptions?.TlsClientOptions, logger: logger);
                     created = true;
                 }
 
@@ -323,14 +324,14 @@ namespace Garnet.cluster
             DisposeBannedWorkerConnections();
 
             var current = currentConfig;
-            var addresses = current.GetWorkerInfoForGossip();
-
-            foreach (var a in addresses)
+            var workers = current.Workers;
+            for (var i = 1; i < workers.Length; i++)
             {
                 if (ctsGossip.Token.IsCancellationRequested) break;
-                var nodeId = a.Item1;
-                var address = a.Item2;
-                var port = a.Item3;
+                var worker = workers[i];
+                var nodeId = worker.Nodeid;
+                var address = worker.Address;
+                var port = worker.ClusterPort;
 
                 // Establish new connection only if it is not in banlist and not in dictionary
                 if (!workerBanList.ContainsKey(nodeId) && !clusterConnectionStore.GetConnection(nodeId, out var _))
