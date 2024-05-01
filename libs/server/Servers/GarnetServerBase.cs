@@ -145,9 +145,9 @@ namespace Garnet.server
 
         /// <inheritdoc />
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool AddSession(WireFormat protocol, ref ISessionProvider provider, INetworkSender networkSender, out IMessageConsumer session)
+        public bool AddSession(WireFormat protocol, MessageConsumerType messageConsumerType, ref ISessionProvider provider, INetworkSender networkSender, out IMessageConsumer session)
         {
-            session = provider.GetSession(protocol, networkSender);
+            session = provider.GetSession(protocol, messageConsumerType, networkSender);
             return true;
         }
 

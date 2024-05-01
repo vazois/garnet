@@ -27,20 +27,21 @@ namespace Garnet.server
         public void Unregister(WireFormat wireFormat, out ISessionProvider provider);
 
         /// <summary>
-        /// 
+        /// Return a dictionary of WireFormat,ISession
         /// </summary>
         /// <returns></returns>
         public ConcurrentDictionary<WireFormat, ISessionProvider> GetSessionProviders();
 
         /// <summary>
-        /// 
+        /// Add message consumer session
         /// </summary>
         /// <param name="protocol"></param>
+        /// <param name="messageConsumerType"></param>
         /// <param name="provider"></param>
         /// <param name="networkSender"></param>
         /// <param name="session"></param>
         /// <returns></returns>
-        public bool AddSession(WireFormat protocol, ref ISessionProvider provider, INetworkSender networkSender, out IMessageConsumer session);
+        public bool AddSession(WireFormat protocol, MessageConsumerType messageConsumerType, ref ISessionProvider provider, INetworkSender networkSender, out IMessageConsumer session);
 
         /// <summary>
         /// Start server

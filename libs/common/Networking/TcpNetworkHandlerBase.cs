@@ -91,7 +91,6 @@ namespace Garnet.common
             }
         }
 
-
         /// <inheritdoc />
         public override void Dispose()
         {

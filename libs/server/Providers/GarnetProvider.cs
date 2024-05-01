@@ -58,9 +58,9 @@ namespace Garnet.server
         public override SpanByteFunctionsForServer<long> GetFunctions() => new();
 
         /// <inheritdoc />
-        public override IMessageConsumer GetSession(WireFormat wireFormat, INetworkSender networkSender)
+        public override IMessageConsumer GetSession(WireFormat wireFormat, MessageConsumerType messageConsumerType, INetworkSender networkSender)
             => (wireFormat == WireFormat.ASCII)
-                ? new RespServerSession(networkSender, storeWrapper, broker)
+                ? new RespServerSession(messageConsumerType, networkSender, storeWrapper, broker)
                 : throw new GarnetException($"Unsupported wireFormat {wireFormat}");
     }
 }

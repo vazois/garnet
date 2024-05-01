@@ -25,6 +25,7 @@ namespace Garnet.server
     /// </summary>
     internal sealed unsafe partial class RespServerSession : ServerSessionBase
     {
+        readonly MessageConsumerType messageConsumerType;
         readonly GarnetSessionMetrics sessionMetrics;
         readonly GarnetLatencyMetricsSession LatencyMetrics;
 
@@ -109,11 +110,13 @@ namespace Garnet.server
         string clientName = null;
 
         public RespServerSession(
+            MessageConsumerType messageConsumerType,
             INetworkSender networkSender,
             StoreWrapper storeWrapper,
             SubscribeBroker<SpanByte, SpanByte, IKeySerializer<SpanByte>> subscribeBroker)
             : base(networkSender)
         {
+            this.messageConsumerType = messageConsumerType;
             this.customCommandManagerSession = new CustomCommandManagerSession(storeWrapper.customCommandManager);
             this.sessionMetrics = storeWrapper.serverOptions.MetricsSamplingFrequency > 0 ? new GarnetSessionMetrics() : null;
             this.LatencyMetrics = storeWrapper.serverOptions.LatencyMonitor ? new GarnetLatencyMetricsSession(storeWrapper.monitor) : null;

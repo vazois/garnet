@@ -15,9 +15,10 @@ namespace Garnet.server
         /// for the given wire format, an exception is thrown.
         /// </summary>
         /// <param name="wireFormat">Wire format</param>
+        /// <param name="messageConsumerType">Message consumer type</param>
         /// <param name="networkSender">Socket connection</param>
         /// <returns>Server session</returns>
-        IMessageConsumer GetSession(WireFormat wireFormat, INetworkSender networkSender);
+        IMessageConsumer GetSession(WireFormat wireFormat, MessageConsumerType messageConsumerType, INetworkSender networkSender);
 
         /// <summary>
         /// 

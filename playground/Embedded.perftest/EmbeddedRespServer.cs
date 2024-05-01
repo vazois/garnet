@@ -49,7 +49,7 @@ namespace Embedded.perftest
                     storeWrapper.serverOptions,
                     loggerFactory: storeWrapper.loggerFactory
                 );
-            return new RespServerSession(new DummyNetworkSender(), tempStoreWrapper, null);
+            return new RespServerSession(MessageConsumerType.RespSessionConsumer, new DummyNetworkSender(), tempStoreWrapper, null);
         }
     }
 }

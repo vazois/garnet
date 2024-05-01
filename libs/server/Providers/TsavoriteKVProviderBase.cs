@@ -72,6 +72,6 @@ namespace Garnet.server
         public abstract Functions GetFunctions();
 
         /// <inheritdoc />
-        public abstract IMessageConsumer GetSession(WireFormat wireFormat, INetworkSender networkSender);
+        public abstract IMessageConsumer GetSession(WireFormat wireFormat, MessageConsumerType messageConsumerType, INetworkSender networkSender);
     }
 }

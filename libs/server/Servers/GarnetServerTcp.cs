@@ -175,7 +175,7 @@ namespace Garnet.server
                 throw new Exception($"Unsupported incoming wire format {protocol} {input}");
             }
 
-            if (!AddSession(protocol, ref provider, networkSender, out session))
+            if (!AddSession(protocol, MessageConsumerType.RespSessionConsumer, ref provider, networkSender, out session))
                 throw new Exception($"Unable to add session");
 
             return true;
