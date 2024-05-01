@@ -292,7 +292,10 @@ namespace Garnet
             // Create separate port for listening to cluster ops
             if (opts.EnableCluster)
             {
-                cluster = new GarnetClusterTcp(opts.Address, opts.Port + 10000, 0, opts.TlsOptions, opts.NetworkSendThrottleMax, logger);
+                var clusterPort = opts.Port + 10000;
+                if (clusterPort is < 0 or > 65535)
+                    throw new GarnetException($"Error Cluster Port: Port + 10000 = {clusterPort} invalid range!");
+                cluster = new GarnetClusterTcp(opts.Address, opts.Port + clusterPort, 0, opts.TlsOptions, opts.NetworkSendThrottleMax, logger);
                 cluster.Register(WireFormat.ASCII, Provider);
             }
         }
