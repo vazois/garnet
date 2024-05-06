@@ -76,7 +76,7 @@ namespace Garnet.cluster
                     {
                         if (!clusterProvider.failoverManager.TryStartReplicaFailover(failoverOption, failoverTimeout))
                         {
-                            while (!RespWriteUtils.WriteError($"ERR failed to start failover for primary({current.GetLocalNodePrimaryAddress()})", ref dcurr, dend))
+                            while (!RespWriteUtils.WriteError($"ERR failed to start failover for primary({current.GetLocalNodePrimaryDataEndpoint()})", ref dcurr, dend))
                                 SendAndReset();
                             return true;
                         }

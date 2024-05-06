@@ -363,13 +363,14 @@ namespace Garnet.cluster
         /// <summary>
         /// Get endpoint (IP address and port) from node-id for cluster operations.
         /// </summary>
-        /// <param name="nodeid">Node-id.</param>
+        /// <param name="nodeId">Node-id.</param>
         /// <returns>Pair of (string,integer) representing endpoint.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public (string address, int port) GetWorkerClusterEndpoint(string nodeid)
+        public (string address, int port) GetWorkerClusterEndpoint(string nodeId)
         {
-            var workerId = GetWorkerIdFromNodeId(nodeid);
-            return (workers[workerId].Address, workers[workerId].ClusterPort);
+            if (nodeId == null) return (null, -1);
+            var workerId = GetWorkerIdFromNodeId(nodeId);
+            return workerId == 0 ? (null, -1) : (workers[workerId].Address, workers[workerId].ClusterPort);
         }
 
         /// <summary>

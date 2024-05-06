@@ -274,7 +274,7 @@ namespace Garnet.cluster
                 return false;
             readHead = (int)(ptr - recvBufferPtr);
             var current = clusterProvider.clusterManager.CurrentConfig;
-            var (host, port) = current.GetEndpointFromNodeId(nodeid);
+            var (host, port) = current.GetWorkerDataEndpoint(nodeid);
             while (!RespWriteUtils.WriteAsciiBulkString($"{host}:{port}", ref dcurr, dend))
                 SendAndReset();
             return true;
