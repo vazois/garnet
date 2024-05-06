@@ -212,7 +212,7 @@ namespace Garnet.cluster
             {
                 if (role == NodeRole.REPLICA)
                 {
-                    var (address, port) = config.GetLocalNodePrimaryAddress();
+                    var (address, port) = config.GetLocalNodePrimaryDataEndpoint();
                     var primaryLinkStatus = clusterManager.GetPrimaryLinkStatus(config);
                     replicationInfo.Add(new("master_host", address));
                     replicationInfo.Add(new("master_port", port.ToString()));

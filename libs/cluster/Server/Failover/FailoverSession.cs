@@ -72,7 +72,7 @@ namespace Garnet.cluster
                 }
                 else
                 {
-                    clients[0] = new GarnetClient(hostAddress, hostPort, clusterProvider.serverOptions.TlsOptions?.TlsClientOptions, authUsername: clusterProvider.ClusterUsername, authPassword: clusterProvider.ClusterPassword, logger: logger);
+                    clients[0] = new GarnetClient(hostAddress, ClusterConfig.ClusterPort(hostPort), clusterProvider.serverOptions.TlsOptions?.TlsClientOptions, authUsername: clusterProvider.ClusterUsername, authPassword: clusterProvider.ClusterPassword, logger: logger);
                 }
             }
 

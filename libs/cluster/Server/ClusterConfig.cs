@@ -231,7 +231,7 @@ namespace Garnet.cluster
         /// Return endpoint of primary if this node is a replica.
         /// </summary>
         /// <returns>Returns primary endpoints if this node is a replica, otherwise (null,-1)</returns>
-        public (string address, int port) GetLocalNodePrimaryAddress() => GetWorkerAddressFromNodeId(workers[1].ReplicaOfNodeId);
+        public (string address, int port) GetLocalNodePrimaryDataEndpoint() => GetWorkerDataEndpoint(workers[1].ReplicaOfNodeId);
 
         /// <summary>
         /// Get local node replicas
@@ -245,12 +245,12 @@ namespace Garnet.cluster
         /// <returns>List of (address,port) pairs.</returns>
         public List<(string, int)> GetLocalNodeReplicaEndpoints()
         {
-            List<(string, int)> replicas = new();
+            List<(string, int)> replicas = [];
             for (ushort i = 2; i < workers.Length; i++)
             {
                 var replicaOf = workers[i].ReplicaOfNodeId;
                 if (replicaOf != null && replicaOf.Equals(workers[1].Nodeid, StringComparison.OrdinalIgnoreCase))
-                    replicas.Add((workers[i].Address, workers[i].Port));
+                    replicas.Add((workers[i].Address, workers[i].ClusterPort));
             }
             return replicas;
         }
@@ -262,15 +262,15 @@ namespace Garnet.cluster
         /// <returns>List of pairs (address,port) representing known primary endpoints</returns>
         public List<(string, int)> GetLocalNodePrimaryEndpoints(bool includeMyPrimaryFirst = false)
         {
-            string myPrimaryId = includeMyPrimaryFirst ? LocalNodePrimaryId : "";
-            List<(string, int)> primaries = new();
+            var myPrimaryId = includeMyPrimaryFirst ? LocalNodePrimaryId : "";
+            List<(string, int)> primaries = [];
             for (ushort i = 2; i < workers.Length; i++)
             {
                 if (workers[i].Role == NodeRole.PRIMARY && !workers[i].Nodeid.Equals(myPrimaryId, StringComparison.OrdinalIgnoreCase))
-                    primaries.Add((workers[i].Address, workers[i].Port));
+                    primaries.Add((workers[i].Address, workers[i].ClusterPort));
 
                 if (workers[i].Nodeid.Equals(myPrimaryId, StringComparison.OrdinalIgnoreCase))
-                    primaries.Insert(0, (workers[i].Address, workers[i].Port));
+                    primaries.Insert(0, (workers[i].Address, workers[i].ClusterPort));
             }
             return primaries;
         }
@@ -348,16 +348,28 @@ namespace Garnet.cluster
         public Worker GetWorkerFromNodeId(string nodeId) => workers[GetWorkerIdFromNodeId(nodeId)];
 
         /// <summary>
-        /// Get worker (IP address and port) for node-id.
+        /// Get worker endpoint (IP address and port) from node-id for data operations.
         /// </summary>
         /// <param name="nodeId"></param>
         /// <returns>Pair of (string,int) representing worker endpoint.</returns>
-        public (string address, int port) GetWorkerAddressFromNodeId(string nodeId)
+        public (string address, int port) GetWorkerDataEndpoint(string nodeId)
         {
             if (nodeId == null)
                 return (null, -1);
             var workerId = GetWorkerIdFromNodeId(nodeId);
             return workerId == 0 ? (null, -1) : (workers[workerId].Address, workers[workerId].Port);
+        }
+
+        /// <summary>
+        /// Get endpoint (IP address and port) from node-id for cluster operations.
+        /// </summary>
+        /// <param name="nodeid">Node-id.</param>
+        /// <returns>Pair of (string,integer) representing endpoint.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public (string address, int port) GetWorkerClusterEndpoint(string nodeid)
+        {
+            var workerId = GetWorkerIdFromNodeId(nodeid);
+            return (workers[workerId].Address, workers[workerId].ClusterPort);
         }
 
         /// <summary>
@@ -461,30 +473,6 @@ namespace Garnet.cluster
         {
             var workerId = slotMap[slot]._workerId;
             return (workers[workerId].Address, workers[workerId].Port);
-        }
-
-        /// <summary>
-        /// Get endpoint of node from node-id for data operations.
-        /// </summary>
-        /// <param name="nodeid">Node-id.</param>
-        /// <returns>Pair of (string,integer) representing endpoint.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public (string address, int port) GetDataEndpoint(string nodeid)
-        {
-            var workerId = GetWorkerIdFromNodeId(nodeid);
-            return (workers[workerId].Address, workers[workerId].Port);
-        }
-
-        /// <summary>
-        /// Get endpoint of node from node-id for cluster operations.
-        /// </summary>
-        /// <param name="nodeid">Node-id.</param>
-        /// <returns>Pair of (string,integer) representing endpoint.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public (string address, int port) GetClusterEndpoint(string nodeid)
-        {
-            var workerId = GetWorkerIdFromNodeId(nodeid);
-            return (workers[workerId].Address, workers[workerId].ClusterPort);
         }
 
         /// <summary>
@@ -679,7 +667,7 @@ namespace Garnet.cluster
 
             foreach (var replicaId in replicaIds)
             {
-                var (replicaAddress, replicaPort) = GetWorkerAddressFromNodeId(replicaId);
+                var (replicaAddress, replicaPort) = GetWorkerDataEndpoint(replicaId);
                 var replicaHostname = GetHostNameFromNodeId(replicaId);
 
                 rangeInfo += $"*4\r\n${replicaAddress.Length}\r\n{replicaAddress}\r\n:{replicaPort}\r\n${replicaId.Length}\r\n{replicaId}\r\n";

@@ -120,20 +120,27 @@ namespace Garnet.cluster
             //
             //2. replica waits for retrieval to complete before moving forward to recovery
             //      retrieval completion coordinated by remoteCheckpointRetrievalCompleted
-            var current = clusterProvider.clusterManager.CurrentConfig;
-            var (address, port) = current.GetLocalNodePrimaryAddress();
-            GarnetClientSession gcs = null;
 
-            if (address == null || port == -1)
+            var current = clusterProvider.clusterManager.CurrentConfig;
+            if (current.LocalNodePrimaryId == null)
             {
                 var errorMsg = Encoding.ASCII.GetString(CmdStrings.RESP_ERR_GENERIC_NOT_ASSIGNED_PRIMARY_ERROR);
                 logger?.LogError("{msg}", errorMsg);
                 return errorMsg;
             }
 
+            var (address, port) = current.GetWorkerClusterEndpoint(current.LocalNodePrimaryId);
+            GarnetClientSession gcs = null;
             try
             {
-                gcs = new(address, port, clusterProvider.serverOptions.TlsOptions?.TlsClientOptions, authUsername: clusterProvider.ClusterUsername, authPassword: clusterProvider.ClusterPassword, bufferSize: 1 << 21);
+                gcs = new(
+                    address,
+                    port,
+                    clusterProvider.serverOptions.TlsOptions?.TlsClientOptions,
+                    authUsername: clusterProvider.ClusterUsername,
+                    authPassword: clusterProvider.ClusterPassword,
+                    bufferSize: 1 << 21,
+                    logger: logger);
                 recvCheckpointHandler = new ReceiveCheckpointHandler(clusterProvider, logger);
                 gcs.Connect();
 

@@ -51,7 +51,7 @@ namespace Garnet.cluster
             var storeCkptManager = clusterProvider.GetReplicationLogCheckpointManager(StoreType.Main);
             var objectStoreCkptManager = clusterProvider.GetReplicationLogCheckpointManager(StoreType.Object);
             var current = clusterProvider.clusterManager.CurrentConfig;
-            var (address, port) = current.GetWorkerAddressFromNodeId(remoteNodeId);
+            var (address, port) = current.GetWorkerClusterEndpoint(remoteNodeId);
 
             if (address == null || port == -1)
             {

@@ -63,6 +63,16 @@ namespace Garnet.client
         readonly LimitedFixedBufferPool networkPool;
 
         /// <summary>
+        /// Connection address
+        /// </summary>
+        public string Address => address;
+
+        /// <summary>
+        /// Connection port
+        /// </summary>
+        public int Port => port;
+
+        /// <summary>
         /// Username to authenticate the session on the server.
         /// </summary>
         readonly string authUsername = null;

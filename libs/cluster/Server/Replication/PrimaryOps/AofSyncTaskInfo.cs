@@ -101,8 +101,7 @@ namespace Garnet.cluster
             finally
             {
                 garnetClient.Dispose();
-                var (address, port) = clusterProvider.clusterManager.CurrentConfig.GetWorkerAddressFromNodeId(remoteNodeId);
-                logger?.LogWarning("AofSync task terminated; client disposed {remoteNodeId} {address} {port} {currentAddress}", remoteNodeId, address, port, previousAddress);
+                logger?.LogWarning("AofSync task terminated; client disposed {remoteNodeId} {address} {port} {currentAddress}", remoteNodeId, garnetClient.Address, garnetClient.Port, previousAddress);
 
                 if (!aofTaskStore.TryRemove(this))
                 {

@@ -79,7 +79,7 @@ namespace Garnet.cluster
                 {
                     var cr = tasks[i];
                     var replicaId = cr.remoteNodeId;
-                    var (address, port) = current.GetWorkerAddressFromNodeId(replicaId);
+                    var (address, port) = current.GetWorkerDataEndpoint(replicaId);
                     var state = cr.garnetClient.IsConnected ? "online" : "offline";
                     long offset = cr.previousAddress;
                     long lag = offset - PrimaryReplicationOffset;
@@ -119,9 +119,9 @@ namespace Garnet.cluster
             aofSyncTaskInfo = null;
 
             if (startAddress == 0) startAddress = ReplicationManager.kFirstValidAofAddress;
-            bool success = false;
+            var success = false;
             var current = clusterProvider.clusterManager.CurrentConfig;
-            var (address, port) = current.GetWorkerAddressFromNodeId(remoteNodeId);
+            var (address, port) = current.GetWorkerClusterEndpoint(remoteNodeId);
 
             // Create AofSyncTask
             try
@@ -131,7 +131,14 @@ namespace Garnet.cluster
                     this,
                     current.LocalNodeId,
                     remoteNodeId,
-                    new GarnetClientSession(address, port, clusterProvider.serverOptions.TlsOptions?.TlsClientOptions, authUsername: clusterProvider.ClusterUsername, authPassword: clusterProvider.ClusterPassword, 1 << 22, logger: logger),
+                    new GarnetClientSession(
+                        address,
+                        port,
+                        clusterProvider.serverOptions.TlsOptions?.TlsClientOptions,
+                        authUsername: clusterProvider.ClusterUsername,
+                        authPassword: clusterProvider.ClusterPassword,
+                        bufferSize: 1 << 22,
+                        logger: logger),
                     new CancellationTokenSource(),
                     startAddress,
                     logger);

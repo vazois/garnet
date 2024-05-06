@@ -33,7 +33,7 @@ namespace Garnet.cluster
             // If connection not available try to initialize it
             if (gsn == null)
             {
-                var (address, port) = currentConfig.GetClusterEndpoint(nodeId);
+                var (address, port) = currentConfig.GetWorkerClusterEndpoint(nodeId);
                 gsn = new GarnetServerNode(
                     clusterProvider,
                     address,
@@ -67,7 +67,7 @@ namespace Garnet.cluster
         /// <returns></returns>
         private GarnetClient CreateConnection(string nodeId)
         {
-            var (address, port) = currentConfig.GetClusterEndpoint(nodeId);
+            var (address, port) = currentConfig.GetWorkerClusterEndpoint(nodeId);
             var client = new GarnetClient(
                 address,
                 port,

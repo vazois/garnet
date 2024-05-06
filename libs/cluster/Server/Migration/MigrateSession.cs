@@ -107,7 +107,7 @@ namespace Garnet.cluster
             this.logger = logger;
             this.clusterProvider = clusterProvider;
             this._targetAddress = _targetAddress;
-            this._targetPort = _targetPort;
+            this._targetPort = ClusterConfig.ClusterPort(_targetPort);
             this._targetNodeId = _targetNodeId;
             this._username = _username;
             this._passwd = _passwd;

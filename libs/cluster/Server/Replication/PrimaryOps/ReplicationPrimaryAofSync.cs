@@ -55,10 +55,8 @@ namespace Garnet.cluster
                 return false;
             }
 
-            // TODO: why do we need to verify this?
             // No guarantee at call time that provided nodeId is of a trusted node because of gossip propagation delay
-            var (address, port) = clusterProvider.clusterManager.CurrentConfig.GetWorkerAddressFromNodeId(nodeid);
-            if (address == null)
+            if (!clusterProvider.clusterManager.CurrentConfig.IsKnown(nodeid))
             {
                 aofTaskStore.TryRemove(aofSyncTaskInfo);
                 errorMessage = Encoding.ASCII.GetBytes($"ERR unknown endpoint for {nodeid}");
