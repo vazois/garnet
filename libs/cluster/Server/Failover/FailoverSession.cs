@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using Garnet.client;
 using Garnet.common;
+using Garnet.server;
 using Microsoft.Extensions.Logging;
 
 namespace Garnet.cluster
@@ -72,7 +73,7 @@ namespace Garnet.cluster
                 }
                 else
                 {
-                    clients[0] = new GarnetClient(hostAddress, ClusterConfig.ClusterPort(hostPort), clusterProvider.serverOptions.TlsOptions?.TlsClientOptions, authUsername: clusterProvider.ClusterUsername, authPassword: clusterProvider.ClusterPassword, logger: logger);
+                    clients[0] = new GarnetClient(hostAddress, GlobUtils.GetClusterPort(hostPort), clusterProvider.serverOptions.TlsOptions?.TlsClientOptions, authUsername: clusterProvider.ClusterUsername, authPassword: clusterProvider.ClusterPassword, logger: logger);
                 }
             }
 

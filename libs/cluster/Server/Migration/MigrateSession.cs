@@ -107,7 +107,7 @@ namespace Garnet.cluster
             this.logger = logger;
             this.clusterProvider = clusterProvider;
             this._targetAddress = _targetAddress;
-            this._targetPort = ClusterConfig.ClusterPort(_targetPort);
+            this._targetPort = GlobUtils.GetClusterPort(_targetPort);
             this._targetNodeId = _targetNodeId;
             this._username = _username;
             this._passwd = _passwd;
@@ -126,11 +126,11 @@ namespace Garnet.cluster
             // Single key value size + few bytes for command header and arguments
             _clientBufferSize = 256 + (1 << clusterProvider.serverOptions.PageSizeBits());
             _gcs = new(
-                _targetAddress,
-                _targetPort,
+                this._targetAddress,
+                this._targetPort,
                 clusterProvider?.serverOptions.TlsOptions?.TlsClientOptions,
-                authUsername: _username,
-                authPassword: _passwd,
+                authUsername: this._username,
+                authPassword: this._passwd,
                 bufferSize: _clientBufferSize,
                 logger: logger);
         }
