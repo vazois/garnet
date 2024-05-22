@@ -84,7 +84,7 @@ namespace Garnet.cluster
 
             clusterConnectionStore = new GarnetClusterConnectionStore(logger: logger);
 
-            InitLocal(address, opts.Port, recoverConfig);
+            InitLocal(address, opts.Port, recoverConfig, opts.ClusterPort);
             logger?.LogInformation("{NodeInfoStartup}", CurrentConfig.GetClusterInfo().TrimEnd('\n'));
             gossipDelay = TimeSpan.FromSeconds(opts.GossipDelay);
             clusterTimeout = opts.ClusterTimeout <= 0 ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds(opts.ClusterTimeout);
@@ -136,7 +136,8 @@ namespace Garnet.cluster
         /// <param name="address"></param>
         /// <param name="port"></param>
         /// <param name="recoverConfig"></param>
-        private void InitLocal(string address, int port, bool recoverConfig)
+        /// <param name="clusterPort"></param>
+        private void InitLocal(string address, int port, bool recoverConfig, int clusterPort)
         {
             if (recoverConfig)
             {
@@ -148,7 +149,8 @@ namespace Garnet.cluster
                     configEpoch: conf.LocalNodeConfigEpoch,
                     role: conf.LocalNodeRole,
                     replicaOfNodeId: conf.LocalNodePrimaryId,
-                    hostname: Format.GetHostName());
+                    hostname: Format.GetHostName(),
+                    clusterPort: clusterPort);
             }
             else
             {
@@ -157,9 +159,10 @@ namespace Garnet.cluster
                     address,
                     port,
                     configEpoch: 0,
-                    NodeRole.PRIMARY,
-                    null,
-                    Format.GetHostName());
+                    role: NodeRole.PRIMARY,
+                    replicaOfNodeId: null,
+                    hostname: Format.GetHostName(),
+                    clusterPort: clusterPort);
             }
         }
 

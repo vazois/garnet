@@ -49,6 +49,9 @@ namespace Garnet.cluster
                 if (worker.Hostname != null)
                     //256 bytes
                     writer.Write(worker.Hostname);
+
+                //4 bytes
+                writer.Write(worker.ClusterPort);
             }
 
             byte[] byteArray = ms.ToArray();
@@ -129,6 +132,8 @@ namespace Garnet.cluster
                 isNull = reader.ReadByte();
                 if (isNull > 0)
                     newWorkers[i].Hostname = reader.ReadString();
+
+                newWorkers[i].ClusterPort = reader.ReadInt32();
             }
 
             reader.Dispose();

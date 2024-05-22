@@ -62,6 +62,11 @@ namespace Garnet.server
         public bool EnableCluster = false;
 
         /// <summary>
+        /// Cluster port
+        /// </summary>
+        public int ClusterPort = 13278;
+
+        /// <summary>
         /// Start with clean cluster config
         /// </summary>
         public bool CleanClusterConfig = false;
@@ -271,8 +276,6 @@ namespace Garnet.server
         /// Use native device on Linux for local storage
         /// </summary>
         public bool UseNativeDeviceLinux = false;
-
-
 
         /// <summary>
         /// Limit of items to return in one iteration of *SCAN command

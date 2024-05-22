@@ -10,6 +10,15 @@ namespace Garnet.server
     /// </summary>
     public static class GlobUtils
     {
+        static readonly int ClusterPortOffset = 10_000;
+
+        /// <summary>
+        /// Calculate cluster port from fixed offset
+        /// </summary>
+        /// <param name="port"></param>
+        /// <returns></returns>
+        public static int GetClusterPort(int port) => port + ClusterPortOffset;
+
         /// <summary>
         /// Glob-style ASCII pattern matching
         /// </summary>

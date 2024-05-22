@@ -135,6 +135,10 @@ namespace Garnet
         [Option("cluster", Required = false, HelpText = "Enable cluster.")]
         public bool? EnableCluster { get; set; }
 
+        [IntRangeValidation(0, 65535)]
+        [Option("cluster-port", Required = false, HelpText = "Port to run server on")]
+        public int ClusterPort { get; set; }
+
         [OptionValidation]
         [Option("clean-cluster-config", Required = false, HelpText = "Start with clean cluster config.")]
         public bool? CleanClusterConfig { get; set; }
@@ -553,6 +557,7 @@ namespace Garnet
                 PubSubPageSize = PubSubPageSize,
                 DisableObjects = DisableObjects.GetValueOrDefault(),
                 EnableCluster = EnableCluster.GetValueOrDefault(),
+                ClusterPort = ClusterPort == 0 ? GlobUtils.GetClusterPort(Port) : ClusterPort,
                 CleanClusterConfig = CleanClusterConfig.GetValueOrDefault(),
                 AuthSettings = GetAuthenticationSettings(logger),
                 EnableAOF = EnableAOF.GetValueOrDefault(),

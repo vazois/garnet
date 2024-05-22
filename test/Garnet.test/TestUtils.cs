@@ -438,6 +438,7 @@ namespace Garnet.test
                 CheckpointDir = _CheckpointDir,
                 Address = Address,
                 Port = Port,
+                ClusterPort = GlobUtils.GetClusterPort(Port),
                 DisablePubSub = disablePubSub,
                 DisableObjects = disableObjects,
                 Recover = tryRecover,

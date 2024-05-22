@@ -70,12 +70,12 @@ namespace Garnet.cluster
         /// <summary>
         /// Cluster port
         /// </summary>
-        public int ClusterPort => Port + ClusterConfig.ClusterPortOffset;
+        public int ClusterPort;
 
         /// <summary>
         /// ToString
         /// </summary>
         /// <returns></returns>
-        public override string ToString() => $"{Nodeid} {Address} {Port} {ConfigEpoch} {Role} {ReplicaOfNodeId}";
+        public override string ToString() => $"{Nodeid} {Address} {Port} {ConfigEpoch} {Role} {ReplicaOfNodeId} {Hostname} {ClusterPort}";
     }
 }

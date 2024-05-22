@@ -26,23 +26,11 @@ namespace Garnet.cluster
         public static readonly int MAX_HASH_SLOT_VALUE = 16384;
 
         /// <summary>
-        /// Cluster port offset from data port
-        /// </summary>
-        public static readonly int ClusterPortOffset = 10000;
-
-        /// <summary>
         /// 
         /// </summary>
         /// <param name="slot"></param>
         /// <returns></returns>
         public static bool OutOfRange(int slot) => slot >= MAX_HASH_SLOT_VALUE || slot < MIN_HASH_SLOT_VALUE;
-
-        /// <summary>
-        /// Get cluster port from provided endpoint port
-        /// </summary>
-        /// <param name="port"></param>
-        /// <returns></returns>
-        public static int ClusterPort(int port) => port + ClusterPortOffset;
 
         /// <summary>
         /// Num of workers assigned
@@ -53,7 +41,6 @@ namespace Garnet.cluster
         /// Get array of workers
         /// </summary>
         public Worker[] Workers => workers;
-
 
         readonly HashSlot[] slotMap;
         readonly Worker[] workers;
@@ -110,6 +97,7 @@ namespace Garnet.cluster
         /// <param name="role">Local worker role.</param>
         /// <param name="replicaOfNodeId">Local worker primary id.</param>
         /// <param name="hostname">Local worker hostname.</param>
+        /// <param name="clusterPort">Local worker hostname.</param>
         /// <returns>Instance of local config with update local worker info.</returns>
         public ClusterConfig InitializeLocalWorker(
             string nodeId,
@@ -118,9 +106,10 @@ namespace Garnet.cluster
             long configEpoch,
             NodeRole role,
             string replicaOfNodeId,
-            string hostname)
+            string hostname,
+            int clusterPort)
         {
-            Worker[] newWorkers = new Worker[workers.Length];
+            var newWorkers = new Worker[workers.Length];
             Array.Copy(workers, newWorkers, workers.Length);
             newWorkers[1].Address = address;
             newWorkers[1].Port = port;
@@ -130,6 +119,7 @@ namespace Garnet.cluster
             newWorkers[1].ReplicaOfNodeId = replicaOfNodeId;
             newWorkers[1].ReplicationOffset = 0;
             newWorkers[1].Hostname = hostname;
+            newWorkers[1].ClusterPort = clusterPort;
             return new ClusterConfig(slotMap, newWorkers);
         }
 
@@ -202,6 +192,12 @@ namespace Garnet.cluster
         /// </summary>
         /// <returns>Port of local worker</returns>
         public int LocalNodePort => workers[1].Port;
+
+        /// <summary>
+        /// Get local node cluster port
+        /// </summary>
+        /// <returns>Port of local worker</returns>
+        public int LocalNodeClusterPort => workers[1].ClusterPort;
 
         /// <summary>
         /// Get local node ID
@@ -901,6 +897,7 @@ namespace Garnet.cluster
                     other.workers[i].Role,
                     other.workers[i].ReplicaOfNodeId,
                     other.workers[i].Hostname,
+                    other.workers[i].ClusterPort,
                     other.GetSlotList(i));
             }
             return newConfig;
@@ -914,6 +911,7 @@ namespace Garnet.cluster
             NodeRole role,
             string replicaOfNodeId,
             string hostname,
+            int clusterPort,
             List<int> slots)
         {
             ushort workerId = 0;
@@ -944,6 +942,7 @@ namespace Garnet.cluster
             newWorkers[workerId].Role = role;
             newWorkers[workerId].ReplicaOfNodeId = replicaOfNodeId;
             newWorkers[workerId].Hostname = hostname;
+            newWorkers[workerId].ClusterPort = clusterPort;
 
             var newSlotMap = this.slotMap;
             if (slots != null)

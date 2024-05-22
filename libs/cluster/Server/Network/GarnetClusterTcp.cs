@@ -49,6 +49,8 @@ namespace Garnet.cluster
         {
             var ip = Address == null ? IPAddress.Any : IPAddress.Parse(Address);
             var endPoint = new IPEndPoint(ip, Port);
+            logger?.LogTrace($"Cluster port listening  {{clusterPort}}", endPoint.Port);
+
             servSocket.Bind(endPoint);
             servSocket.Listen(512);
             if (!servSocket.AcceptAsync(acceptEventArg))
