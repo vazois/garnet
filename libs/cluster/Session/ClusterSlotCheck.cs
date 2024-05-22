@@ -29,7 +29,7 @@ namespace Garnet.cluster
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Redirect(ushort slot, ClusterConfig config)
         {
-            var (address, port) = config.GetEndpointFromSlot(slot);
+            var (address, port) = config.GetWorkerDataEndpoint(slot);
             ReadOnlySpan<byte> errorMessage;
             if (port != 0)
                 errorMessage = Encoding.ASCII.GetBytes($"MOVED {slot} {address}:{port}");
@@ -51,7 +51,7 @@ namespace Garnet.cluster
             switch (state)
             {
                 case SlotVerifiedState.MOVED:
-                    (address, port) = config.GetEndpointFromSlot(slot);
+                    (address, port) = config.GetWorkerDataEndpoint(slot);
                     errorMessage = Encoding.ASCII.GetBytes($"MOVED {slot} {address}:{port}");
                     break;
                 case SlotVerifiedState.MIGRATING:
@@ -61,7 +61,7 @@ namespace Garnet.cluster
                     errorMessage = CmdStrings.RESP_ERR_CLUSTERDOWN;
                     break;
                 case SlotVerifiedState.ASK:
-                    (address, port) = config.AskEndpointFromSlot(slot);
+                    (address, port) = config.GetWorkerDataEndpoint(slot, ask: true);
                     errorMessage = Encoding.ASCII.GetBytes($"ASK {slot} {address}:{port}");
                     break;
                 case SlotVerifiedState.CROSSLOT:

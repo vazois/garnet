@@ -40,7 +40,7 @@ namespace Garnet.test.cluster
         [TestCase("forget", new int[] { 0, 3, 4 })]
         [TestCase("info", new int[] { 1, 2, 3 })]
         [TestCase("help", new int[] { 1, 2, 3 })]
-        [TestCase("meet", new int[] { 0, 1, 3, 4 })]
+        [TestCase("meet", new int[] { 0, 1, 4, 5 })]
         [TestCase("myid", new int[] { 1, 2, 3 })]
         [TestCase("myparentid", new int[] { 1, 2, 3 })]
         [TestCase("endpoint", new int[] { 0, 2, 3 })]

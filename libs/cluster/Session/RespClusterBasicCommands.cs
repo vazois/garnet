@@ -175,8 +175,8 @@ namespace Garnet.cluster
                 return success;
             }
 
-            // Expecting exactly 2 arguments
-            if (count != 2)
+            // Expecting exactly 2 or 3 arguments
+            if (count is < 2 or > 3)
             {
                 invalidParameters = true;
                 return true;
@@ -188,11 +188,18 @@ namespace Garnet.cluster
 
             if (!RespReadUtils.ReadIntWithLengthHeader(out var port, ref ptr, recvBufferPtr + bytesRead))
                 return false;
+
+            var clusterPort = 0;
+            if (count > 2)
+            {
+                if (!RespReadUtils.ReadIntWithLengthHeader(out clusterPort, ref ptr, recvBufferPtr + bytesRead))
+                    return false;
+            }
             readHead = (int)(ptr - recvBufferPtr);
 
             var ipaddressStr = Encoding.ASCII.GetString(ipaddress);
-            logger?.LogTrace("CLUSTER MEET {ipaddressStr} {port}", ipaddressStr, port);
-            clusterProvider.clusterManager.RunMeetTask(ipaddressStr, port);
+            logger?.LogTrace("CLUSTER MEET {ipaddressStr} {port} {clusterPort}", ipaddressStr, port, clusterPort);
+            clusterProvider.clusterManager.RunMeetTask(ipaddressStr, port, clusterPort);
             while (!RespWriteUtils.WriteDirect(CmdStrings.RESP_OK, ref dcurr, dend))
                 SendAndReset();
 

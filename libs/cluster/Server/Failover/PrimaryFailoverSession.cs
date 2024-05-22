@@ -99,7 +99,7 @@ namespace Garnet.cluster
                 status = FailoverStatus.ISSUING_PAUSE_WRITES;
                 var localId = clusterProvider.clusterManager.CurrentConfig.LocalNodeId;
                 var oldRole = clusterProvider.clusterManager.CurrentConfig.LocalNodeRole;
-                var replicas = clusterProvider.clusterManager.CurrentConfig.GetReplicaIds(localId);
+                var replicas = clusterProvider.clusterManager.CurrentConfig.GetReplicaData(localId);
                 clusterProvider.clusterManager.TryStopWrites(replicas[0]);
                 _ = clusterProvider.WaitForConfigTransition();
 

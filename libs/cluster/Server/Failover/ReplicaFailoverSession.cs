@@ -250,7 +250,7 @@ namespace Garnet.cluster
             var newConfig = clusterProvider.clusterManager.CurrentConfig;
             // Get replica ids for old primary from old configuration
             var oldPrimaryId = currentConfig.LocalNodePrimaryId;
-            var replicaIds = newConfig.GetReplicaIds(oldPrimaryId);
+            var replicaIds = newConfig.GetReplicaData(oldPrimaryId);
             var configByteArray = newConfig.ToByteArray();
             var attachReplicaTasks = new List<Task>();
 

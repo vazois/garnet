@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Garnet.common;
+using Garnet.server;
 using Microsoft.Extensions.Logging;
 
 namespace Garnet.cluster
@@ -179,11 +180,14 @@ namespace Garnet.cluster
         /// </summary>
         private void TryStartGossipTasks()
         {
+            var current = CurrentConfig;
             // Start background task for gossip protocol
-            for (var i = 2; i <= CurrentConfig.NumWorkers; i++)
+            for (uint i = 2; i <= current.NumWorkers; i++)
             {
-                var (address, port) = CurrentConfig.GetWorkerAddress((ushort)i);
-                RunMeetTask(address, port);
+                var address = current.GetWorkerAddress(i);
+                var port = current.GetWorkerDataPort(i);
+                var clusterPort = current.GetWorkerClusterPort(i);
+                RunMeetTask(address, port, clusterPort);
             }
 
             _ = Interlocked.Increment(ref numActiveTasks);
@@ -225,18 +229,20 @@ namespace Garnet.cluster
         /// <summary>
         /// Run meet background task
         /// </summary>
-        /// <param name="address"></param>
-        /// <param name="port"></param>
-        public void RunMeetTask(string address, int port)
-            => Task.Run(() => Meet(address, port));
+        /// <param name="address">IP address of node</param>
+        /// <param name="port">Data port number</param>
+        /// <param name="clusterPort">Cluster port number (optional)</param>
+        public void RunMeetTask(string address, int port, int clusterPort = 0)
+            => Task.Run(() => Meet(address, port, clusterPort));
 
         /// <summary>
         /// Meet will immediately communicate with the new node and try to merge the retrieve configuration to its own.
         /// If node to meet was previous in the ban list then it will not be added to the cluster
         /// </summary>
-        /// <param name="address"></param>
-        /// <param name="port"></param>
-        public void Meet(string address, int port)
+        /// <param name="address">IP address of node</param>
+        /// <param name="port">Data port number</param>
+        /// <param name="clusterPort">Cluster port number (optional)</param>
+        public void Meet(string address, int port, int clusterPort = 0)
         {
             GarnetServerNode gsn = null;
             var conf = CurrentConfig;
@@ -252,8 +258,8 @@ namespace Garnet.cluster
 
                 if (gsn == null)
                 {
-                    var clusterPort = ClusterConfig.ClusterPort(port);
-                    gsn = new GarnetServerNode(clusterProvider, address, clusterPort, tlsOptions?.TlsClientOptions, logger: logger);
+                    var _port = clusterPort == 0 ? GlobUtils.GetClusterPort(port) : clusterPort;
+                    gsn = new GarnetServerNode(clusterProvider, address, _port, tlsOptions?.TlsClientOptions, logger: logger);
                     created = true;
                 }
 
@@ -324,14 +330,12 @@ namespace Garnet.cluster
             DisposeBannedWorkerConnections();
 
             var current = currentConfig;
-            var workers = current.Workers;
-            for (var i = 1; i < workers.Length; i++)
+            for (uint i = 1; i <= current.NumWorkers; i++)
             {
                 if (ctsGossip.Token.IsCancellationRequested) break;
-                var worker = workers[i];
-                var nodeId = worker.Nodeid;
-                var address = worker.Address;
-                var port = worker.ClusterPort;
+                var nodeId = current.GetWorkerNodeId(i);
+                var address = current.GetWorkerAddress(i);
+                var port = current.GetWorkerClusterPort(i);
 
                 // Establish new connection only if it is not in banlist and not in dictionary
                 if (!workerBanList.ContainsKey(nodeId) && !clusterConnectionStore.GetConnection(nodeId, out var _))

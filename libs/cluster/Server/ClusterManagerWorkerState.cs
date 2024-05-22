@@ -203,7 +203,7 @@ namespace Garnet.cluster
         public List<string> ListReplicas(string nodeid)
         {
             var current = CurrentConfig;
-            return current.GetReplicas(nodeid);
+            return current.GetReplicaData(nodeid, formatted: true);
         }
     }
 }
