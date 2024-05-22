@@ -60,7 +60,6 @@ namespace Garnet.cluster
             workers[0].Port = 0;
             workers[0].Nodeid = null;
             workers[0].ConfigEpoch = 0;
-            workers[0].LastVotedConfigEpoch = 0;
             workers[0].Role = NodeRole.UNASSIGNED;
             workers[0].ReplicaOfNodeId = null;
             workers[0].ReplicationOffset = 0;
@@ -187,18 +186,6 @@ namespace Garnet.cluster
         public long LocalNodeConfigEpoch => workers[1].ConfigEpoch;
 
         /// <summary>
-        /// Next valid config epoch which can be used as requestedEpoch for voting.
-        /// </summary>
-        /// <returns>Current config epoch of local node.</returns>
-        public long LocalNodeCurrentConfigEpoch => workers[1].CurrentConfigEpoch;
-
-        /// <summary>
-        /// Get last epoch this node has voted for
-        /// </summary>
-        /// <returns>Last voted config epoch of local node.</returns>
-        public long LocalNodeLastVotedEpoch => workers[1].LastVotedConfigEpoch;
-
-        /// <summary>
         /// Get local node replicas
         /// </summary>
         /// <returns>Returns a list of node-ids representing the replicas that replicate this node.</returns>
@@ -323,29 +310,6 @@ namespace Garnet.cluster
                 return null;
             var workerId = GetWorkerIdFromNodeId(nodeId);
             return workerId == 0 ? null : workers[workerId].Hostname;
-        }
-
-        private static void slotBitmapSetBit(ref byte[] bitmap, int pos)
-        {
-            int BYTE = (pos / 8);
-            int BIT = pos & 7;
-            bitmap[BYTE] |= (byte)(1 << BIT);
-        }
-
-        /// <summary>
-        /// Returns compressed representation of slots claimed by given node.
-        /// </summary>
-        /// <param name="nodeId"></param>
-        /// <returns>Byte array representing bitmap of claimed slots.</returns>
-        public byte[] GetClaimedSlotsFromNodeId(string nodeId)
-        {
-            byte[] claimedSlots = new byte[slotMap.Length / 8];
-            for (int i = 0; i < slotMap.Length; i++)
-            {
-                if (workers[slotMap[i].workerId].Nodeid.Equals(nodeId, StringComparison.OrdinalIgnoreCase))
-                    slotBitmapSetBit(ref claimedSlots, i);
-            }
-            return claimedSlots;
         }
         #endregion
 
