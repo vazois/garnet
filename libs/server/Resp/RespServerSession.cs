@@ -1008,7 +1008,6 @@ namespace Garnet.server
                 readOnly, SessionAsking, ref dcurr, ref dend, out _);
         }
 
-
         /// <summary>
         /// This method is used to verify slot ownership for provided array of key argslices.
         /// </summary>
