@@ -155,18 +155,69 @@ namespace Garnet.cluster
             return crossSlot ? new(SlotVerifiedState.CROSSLOT, slot) : new(SlotVerifiedState.OK, slot);
         }
 
+
         ClusterSlotVerificationResult KeyArraySlotVerify(ClusterConfig config, int keyCount, ref byte* ptr, byte* endPtr, bool readOnly, bool interleavedKeys, byte SessionAsking, out bool retVal)
         {
-            var vres = ArrayCrosslotVerify(keyCount, ref ptr, endPtr, interleavedKeys, out retVal, out byte* keyPtr, out int ksize);
+            var vres = ArraySlotVerify(keyCount, ref ptr, endPtr, interleavedKeys, out retVal, out byte* keyPtr, out int ksize);
             if (!retVal) return new(SlotVerifiedState.OK, 0);
 
-            if (vres.state == SlotVerifiedState.CROSSLOT)
-                return vres;
-            else
+            return vres;
+
+            ClusterSlotVerificationResult ArraySlotVerify(int keyCount, ref byte* ptr, byte* endPtr, bool interleavedKeys, out bool retVal, out byte* keyPtr, out int ksize)
             {
-                return readOnly
-                    ? SingleKeyReadSlotVerify(config, new ArgSlice(keyPtr, ksize), SessionAsking, vres.slot)
-                    : SingleKeyReadWriteSlotVerify(config, new ArgSlice(keyPtr, ksize), SessionAsking, vres.slot);
+                retVal = false;
+                var crossSlot = false;
+                keyPtr = null;
+                ksize = 0;
+
+                byte* valPtr = null;
+                var vsize = 0;
+
+                if (!RespReadUtils.ReadPtrWithLengthHeader(ref keyPtr, ref ksize, ref ptr, endPtr))
+                    return new(SlotVerifiedState.OK, 0);
+
+                // Skip value if key values are interleaved
+                if (interleavedKeys)
+                    if (!RespReadUtils.ReadPtrWithLengthHeader(ref valPtr, ref vsize, ref ptr, endPtr))
+                        return new(SlotVerifiedState.OK, 0);
+
+                var slot = HashSlotUtils.HashSlot(keyPtr, ksize);
+
+                // Verify key
+                var vres = readOnly
+                    ? SingleKeyReadSlotVerify(config, new ArgSlice(keyPtr, ksize), SessionAsking, slot)
+                    : SingleKeyReadWriteSlotVerify(config, new ArgSlice(keyPtr, ksize), SessionAsking, slot);
+
+                bool keyStateChange = false;
+                for (var c = 1; c < keyCount; c++)
+                {
+                    keyPtr = null;
+                    ksize = 0;
+
+                    if (!RespReadUtils.ReadPtrWithLengthHeader(ref keyPtr, ref ksize, ref ptr, endPtr))
+                        return new(SlotVerifiedState.OK, slot);
+
+                    // Skip value if key values are interleaved
+                    if (interleavedKeys)
+                        if (!RespReadUtils.ReadPtrWithLengthHeader(ref valPtr, ref vsize, ref ptr, endPtr))
+                            return new(SlotVerifiedState.OK, 0);
+
+                    var _slot = HashSlotUtils.HashSlot(keyPtr, ksize);
+                    crossSlot |= (_slot != slot);
+
+                    var _vres = readOnly
+                        ? SingleKeyReadSlotVerify(config, new ArgSlice(keyPtr, ksize), SessionAsking, vres.slot)
+                        : SingleKeyReadWriteSlotVerify(config, new ArgSlice(keyPtr, ksize), SessionAsking, vres.slot);
+
+                    if (vres.state != _vres.state)
+                        keyStateChange = true;
+                }
+
+                retVal = true;
+
+                if (crossSlot || keyStateChange) return new(SlotVerifiedState.CROSSLOT, slot);
+
+                return new(SlotVerifiedState.OK, slot);
             }
         }
 
