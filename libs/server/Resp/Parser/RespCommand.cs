@@ -109,6 +109,7 @@ namespace Garnet.server
         BRPOP,
         BLMOVE,
         MIGRATE,
+        MIGRATEGC,
         MSET,
         MSETNX,
         PERSIST,
@@ -431,6 +432,7 @@ namespace Garnet.server
             {
                 // TODO: validate if these cases need to be excluded
                 RespCommand.MIGRATE => false,
+                RespCommand.MIGRATEGC => false,
                 RespCommand.DBSIZE => false,
                 RespCommand.MEMORY_USAGE => false,
                 RespCommand.FLUSHDB => false,
@@ -1802,6 +1804,10 @@ namespace Garnet.server
             else if (command.SequenceEqual(CmdStrings.MIGRATE))
             {
                 return RespCommand.MIGRATE;
+            }
+            else if (command.SequenceEqual(CmdStrings.MIGRATEGC))
+            {
+                return RespCommand.MIGRATEGC;
             }
             else if (command.SequenceEqual(CmdStrings.FAILOVER))
             {
