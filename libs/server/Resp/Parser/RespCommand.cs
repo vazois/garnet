@@ -109,7 +109,6 @@ namespace Garnet.server
         BRPOP,
         BLMOVE,
         MIGRATE,
-        MIGRATEGC,
         MSET,
         MSETNX,
         PERSIST,
@@ -197,6 +196,7 @@ namespace Garnet.server
         BGSAVE,
         COMMITAOF,
         FORCEGC,
+        MIGRATEGC,
         FAILOVER,
 
         // Custom commands
