@@ -96,11 +96,11 @@ namespace Garnet.cluster
 
         public void Dispose()
         {
-            _lock.WriteLock();
             try
             {
+                _lock.WriteLock();
                 _disposed = true;
-                for (int i = 0; i < numTasks; i++)
+                for (var i = 0; i < numTasks; i++)
                 {
                     var task = tasks[i];
                     task.Dispose();
@@ -119,7 +119,7 @@ namespace Garnet.cluster
             aofSyncTaskInfo = null;
 
             if (startAddress == 0) startAddress = ReplicationManager.kFirstValidAofAddress;
-            bool success = false;
+            var success = false;
             var current = clusterProvider.clusterManager.CurrentConfig;
             var (address, port) = current.GetWorkerAddressFromNodeId(remoteNodeId);
 
@@ -131,7 +131,7 @@ namespace Garnet.cluster
                     this,
                     current.LocalNodeId,
                     remoteNodeId,
-                    new GarnetClientSession(address, port, new NetworkBuffers(1 << 22).Allocate(logger: logger), clusterProvider.serverOptions.TlsOptions?.TlsClientOptions, authUsername: clusterProvider.ClusterUsername, authPassword: clusterProvider.ClusterPassword, logger: logger),
+                    new GarnetClientSession(address, port, clusterProvider.replicationManager.GetNetworkBuffers, clusterProvider.serverOptions.TlsOptions?.TlsClientOptions, authUsername: clusterProvider.ClusterUsername, authPassword: clusterProvider.ClusterPassword, logger: logger),
                     new CancellationTokenSource(),
                     startAddress,
                     logger);
