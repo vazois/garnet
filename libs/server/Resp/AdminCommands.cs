@@ -37,9 +37,9 @@ namespace Garnet.server
                 RespCommand.CONFIG_GET => NetworkCONFIG_GET(),
                 RespCommand.CONFIG_REWRITE => NetworkCONFIG_REWRITE(),
                 RespCommand.CONFIG_SET => NetworkCONFIG_SET(),
+                RespCommand.PURGEBP or
                 RespCommand.FAILOVER or
                 RespCommand.REPLICAOF or
-                RespCommand.MIGRATEGC or
                 RespCommand.SECONDARYOF => NetworkProcessClusterCommand(command),
                 RespCommand.LATENCY_HELP => NetworkLatencyHelp(),
                 RespCommand.LATENCY_HISTOGRAM => NetworkLatencyHistogram(),
