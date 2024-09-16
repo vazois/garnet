@@ -4,16 +4,19 @@
 using System;
 using System.Collections.Generic;
 using Garnet.common;
-using Garnet.server;
 using Tsavorite.core;
 
-namespace Garnet.cluster
+namespace Garnet.server
 {
-    internal sealed unsafe partial class ClusterSession : IClusterSession
+    sealed partial class StorageSession : IDisposable
     {
+        public static bool Expired(ref SpanByte value) => value.MetadataSize > 0 && value.ExtraMetadata < DateTimeOffset.UtcNow.Ticks;
+
+        public static bool Expired(ref IGarnetObject value) => value.Expiration != 0 && value.Expiration < DateTimeOffset.UtcNow.Ticks;
+
         internal static class ClusterKeyIterationFunctions
         {
-            internal struct MainStoreCountKeys : IScanIteratorFunctions<SpanByte, SpanByte>
+            internal class MainStoreCountKeys : IScanIteratorFunctions<SpanByte, SpanByte>
             {
                 internal int keyCount;
                 readonly int slot;
@@ -34,7 +37,7 @@ namespace Garnet.cluster
                 public void OnException(Exception exception, long numberOfRecords) { }
             }
 
-            internal struct ObjectStoreCountKeys : IScanIteratorFunctions<byte[], IGarnetObject>
+            internal class ObjectStoreCountKeys : IScanIteratorFunctions<byte[], IGarnetObject>
             {
                 internal int keyCount;
                 readonly int slot;
@@ -44,11 +47,8 @@ namespace Garnet.cluster
                 public bool SingleReader(ref byte[] key, ref IGarnetObject value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
                 {
                     cursorRecordResult = CursorRecordResult.Accept; // default; not used here , out CursorRecordResult cursorRecordResult
-                    fixed (byte* keyPtr = key)
-                    {
-                        if (HashSlotUtils.HashSlot(keyPtr, key.Length) == slot && !Expired(ref value))
-                            keyCount++;
-                    }
+                    if (HashSlotUtils.HashSlot(key) == slot && !Expired(ref value))
+                        keyCount++;
                     return true;
                 }
                 public bool ConcurrentReader(ref byte[] key, ref IGarnetObject value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
@@ -58,7 +58,7 @@ namespace Garnet.cluster
                 public void OnException(Exception exception, long numberOfRecords) { }
             }
 
-            internal readonly struct MainStoreGetKeysInSlot : IScanIteratorFunctions<SpanByte, SpanByte>
+            internal class MainStoreGetKeysInSlot : IScanIteratorFunctions<SpanByte, SpanByte>
             {
                 readonly List<byte[]> keys;
                 readonly int slot, maxKeyCount;
@@ -84,7 +84,7 @@ namespace Garnet.cluster
                 public void OnException(Exception exception, long numberOfRecords) { }
             }
 
-            internal readonly struct ObjectStoreGetKeysInSlot : IScanIteratorFunctions<byte[], IGarnetObject>
+            internal class ObjectStoreGetKeysInSlot : IScanIteratorFunctions<byte[], IGarnetObject>
             {
                 readonly List<byte[]> keys;
                 readonly int slot;
@@ -98,11 +98,8 @@ namespace Garnet.cluster
                 public bool SingleReader(ref byte[] key, ref IGarnetObject value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
                 {
                     cursorRecordResult = CursorRecordResult.Accept; // default; not used here
-                    fixed (byte* keyPtr = key)
-                    {
-                        if (HashSlotUtils.HashSlot(keyPtr, key.Length) == slot && !Expired(ref value))
-                            keys.Add(key);
-                    }
+                    if (HashSlotUtils.HashSlot(key) == slot && !Expired(ref value))
+                        keys.Add(key);
                     return true;
                 }
                 public bool ConcurrentReader(ref byte[] key, ref IGarnetObject value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
@@ -111,6 +108,40 @@ namespace Garnet.cluster
                 public void OnStop(bool completed, long numberOfRecords) { }
                 public void OnException(Exception exception, long numberOfRecords) { }
             }
+        }
+
+        internal int CountKeysInSlot(int slot)
+        {
+            ClusterKeyIterationFunctions.MainStoreCountKeys iterFuncs = new(slot);
+            var cursor = 0L;
+            _ = basicContext.Session.ScanCursor(ref cursor, long.MaxValue, iterFuncs);
+            var totalCount = iterFuncs.keyCount;
+
+            if (objectStoreBasicContext.Session != null)
+            {
+                ClusterKeyIterationFunctions.ObjectStoreCountKeys objectStoreIterFuncs = new(slot);
+                cursor = 0L;
+                _ = objectStoreBasicContext.Session.ScanCursor(ref cursor, long.MaxValue, objectStoreIterFuncs);
+                totalCount += objectStoreIterFuncs.keyCount;
+            }
+
+            return totalCount;
+        }
+
+        public List<byte[]> GetKeysInSlot(int slot, int keyCount)
+        {
+            List<byte[]> keys = [];
+            ClusterKeyIterationFunctions.MainStoreGetKeysInSlot mainIterFuncs = new(keys, slot, keyCount);
+            var cursor = 0L;
+            _ = basicContext.Session.ScanCursor(ref cursor, long.MaxValue, mainIterFuncs);
+
+            if (objectStoreBasicContext.Session != null)
+            {
+                ClusterKeyIterationFunctions.ObjectStoreGetKeysInSlot objectIterFuncs = new(keys, slot);
+                cursor = 0L;
+                _ = objectStoreBasicContext.Session.ScanCursor(ref cursor, long.MaxValue, objectIterFuncs);
+            }
+            return keys;
         }
     }
 }

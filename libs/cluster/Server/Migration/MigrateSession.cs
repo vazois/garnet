@@ -139,8 +139,7 @@ namespace Garnet.cluster
             this._keys = keys ?? new MigratingKeysWorkingSet();
             this.transferOption = transferOption;
 
-            if (clusterProvider != null)
-                localServerSession = new LocalServerSession(clusterProvider.storeWrapper);
+            localServerSession = new LocalServerSession(clusterProvider.storeWrapper);
             Status = MigrateState.PENDING;
 
             // Single key value size + few bytes for command header and arguments

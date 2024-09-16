@@ -495,6 +495,14 @@ namespace Garnet.server
         }
 
         /// <inheritdoc />
+        public int CountKeysInSlot(int slot)
+            => garnetApi.CountKeysInSlot(slot);
+
+        /// <inheritdoc />
+        public List<byte[]> GetKeysInSlot(int slot, int keyCount)
+            => garnetApi.GetKeysInSlot(slot, keyCount);
+
+        /// <inheritdoc />
         public bool DbScan(ArgSlice patternB, bool allKeys, long cursor, out long cursorStore, out List<byte[]> keys, long count = 10, ReadOnlySpan<byte> type = default)
         {
             return garnetApi.DbScan(patternB, allKeys, cursor, out cursorStore, out keys, count, type);
