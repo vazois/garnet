@@ -340,6 +340,14 @@ namespace Garnet.server
             => storageSession.DbSize();
 
         /// <inheritdoc />
+        public int CountKeysInSlot(int slot)
+            => storageSession.CountKeysInSlot(slot);
+
+        /// <inheritdoc />
+        public List<byte[]> GetKeysInSlot(int slot, int keyCount)
+            => storageSession.GetKeysInSlot(slot, keyCount);
+
+        /// <inheritdoc />
         public bool DbScan(ArgSlice patternB, bool allKeys, long cursor, out long storeCursor, out List<byte[]> Keys, long count = 10, ReadOnlySpan<byte> type = default)
             => storageSession.DbScan(patternB, allKeys, cursor, out storeCursor, out Keys, count, type);
 

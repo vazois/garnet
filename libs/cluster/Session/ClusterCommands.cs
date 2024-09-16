@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Garnet.common;
 using Garnet.server;
 
 namespace Garnet.cluster
@@ -16,39 +15,11 @@ namespace Garnet.cluster
     {
         ClusterConfig lastSentConfig;
 
-        private int CountKeysInSessionStore(int slot)
-        {
-            ClusterKeyIterationFunctions.MainStoreCountKeys iterFuncs = new(slot);
-            _ = basicGarnetApi.IterateMainStore(ref iterFuncs);
-            return iterFuncs.keyCount;
-        }
-
-        private int CountKeysInObjectStore(int slot)
-        {
-            if (!clusterProvider.serverOptions.DisableObjects)
-            {
-                ClusterKeyIterationFunctions.ObjectStoreCountKeys iterFuncs = new(slot);
-                _ = basicGarnetApi.IterateObjectStore(ref iterFuncs);
-                return iterFuncs.keyCount;
-            }
-            return 0;
-        }
-
-        private int CountKeysInSlot(int slot) => CountKeysInSessionStore(slot) + CountKeysInObjectStore(slot);
+        private int CountKeysInSlot(int slot)
+            => basicGarnetApi.CountKeysInSlot(slot);
 
         private List<byte[]> GetKeysInSlot(int slot, int keyCount)
-        {
-            List<byte[]> keys = [];
-            ClusterKeyIterationFunctions.MainStoreGetKeysInSlot mainIterFuncs = new(keys, slot, keyCount);
-            _ = basicGarnetApi.IterateMainStore(ref mainIterFuncs);
-
-            if (!clusterProvider.serverOptions.DisableObjects)
-            {
-                ClusterKeyIterationFunctions.ObjectStoreGetKeysInSlot objectIterFuncs = new(keys, slot);
-                _ = basicGarnetApi.IterateObjectStore(ref objectIterFuncs);
-            }
-            return keys;
-        }
+            => basicGarnetApi.GetKeysInSlot(slot, keyCount);
 
         /// <summary>
         /// Try to parse slots

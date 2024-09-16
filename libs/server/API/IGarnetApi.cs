@@ -1575,6 +1575,20 @@ namespace Garnet.server
         int GetDbSize();
 
         /// <summary>
+        /// Get count of keys in provided slot
+        /// </summary>
+        /// <param name="slot"></param>
+        /// <returns></returns>
+        int CountKeysInSlot(int slot);
+
+        /// <summary>
+        /// Get keys in slot
+        /// </summary>
+        /// <param name="slot"></param>
+        /// <returns></returns>
+        List<byte[]> GetKeysInSlot(int slot, int keyCount);
+
+        /// <summary>
         /// Iterates the set of keys in the main store.
         /// </summary>
         /// <param name="patternB">The pattern to apply for filtering</param>
