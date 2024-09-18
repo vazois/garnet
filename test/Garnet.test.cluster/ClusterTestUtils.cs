@@ -129,7 +129,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = GetServer(endPoint);
-                var resp = server.Execute(cmd, args);
+                var resp = server.ExecuteAsync(cmd, args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 return resp;
             }
             catch (Exception ex)
@@ -234,7 +234,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(source);
-                var resp = server.Execute("cluster", "myid");
+                var resp = server.ExecuteAsync("cluster", "myid").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 return (string)resp;
             }
             catch (Exception ex)
@@ -318,7 +318,7 @@ namespace Garnet.test.cluster
                 foreach (var server in servers)
                 {
                     int count = expectedConfig.Count;
-                    var nodes = server.ClusterNodes()?.Nodes;
+                    var nodes = server.ClusterNodesAsync().WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult().Nodes;
                     if (nodes != null)
                     {
                         foreach (var node in nodes)
@@ -494,15 +494,15 @@ namespace Garnet.test.cluster
             {
                 var server = GetServer(nodeIndex);
 
-                var txnblockResp = (string)server.Execute("MULTI", new List<object>(), CommandFlags.NoRedirect);
+                var txnblockResp = (string)server.ExecuteAsync("MULTI", [], CommandFlags.NoRedirect).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual(txnblockResp, "OK");
                 foreach (var cmd in commands)
                 {
-                    var respCmd = (string)server.Execute(cmd.Item1, cmd.Item2, CommandFlags.NoRedirect);
+                    var respCmd = (string)server.ExecuteAsync(cmd.Item1, cmd.Item2, CommandFlags.NoRedirect).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                     ClassicAssert.AreEqual(respCmd, "QUEUED");
                 }
 
-                result = server.Execute("EXEC", new List<object>(), CommandFlags.NoRedirect);
+                result = server.ExecuteAsync("EXEC", [], CommandFlags.NoRedirect).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -1007,7 +1007,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var resp = server.Execute("cluster", "set-config-epoch", $"{epoch}");
+                var resp = server.ExecuteAsync("cluster", "set-config-epoch", $"{epoch}").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual((string)resp, "OK");
             }
             catch (Exception ex)
@@ -1025,7 +1025,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var resp = server.Execute("cluster", "bumpepoch");
+                var resp = server.ExecuteAsync("cluster", "bumpepoch").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual((string)resp, "OK");
                 if (waitForSync)
                     WaitForEpochSync(endPoint).GetAwaiter().GetResult();
@@ -1115,7 +1115,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(source);
-                server.Execute("auth", username, password);
+                server.ExecuteAsync("auth", username, password).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -1132,7 +1132,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(source);
-                var resp = server.Execute("cluster", "meet", $"{target.Address}", $"{target.Port}");
+                var resp = server.ExecuteAsync("cluster", "meet", $"{target.Address}", $"{target.Port}").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual((string)resp, "OK");
             }
             catch (Exception ex)
@@ -1150,7 +1150,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(source);
-                var resp = server.Execute("cluster", "banlist");
+                var resp = server.ExecuteAsync("cluster", "banlist").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 return (string[])resp;
             }
             catch (Exception ex)
@@ -1186,7 +1186,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var strResult = (string)server.Execute("cluster", "nodes");
+                var strResult = (string)server.ExecuteAsync("cluster", "nodes").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 var data = strResult.Split('\n');
                 List<string> nodeConfig = new();
 
@@ -1216,7 +1216,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var strResult = (string)server.Execute("cluster", "nodes");
+                var strResult = (string)server.ExecuteAsync("cluster", "nodes").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 var data = strResult.Split('\n');
                 Dictionary<string, Dictionary<ClusterInfoTag, string>> nodeConfig = new();
 
@@ -1345,7 +1345,7 @@ namespace Garnet.test.cluster
             RedisResult resp;
             try
             {
-                resp = server.Execute("cluster", "countkeysinslot", $"{slot}");
+                resp = server.ExecuteAsync("cluster", "countkeysinslot", $"{slot}").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -1381,7 +1381,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer((IPEndPoint)endpoints[nodeIndex]);
-                var resp = server.Execute("cluster", "getkeysinslot", $"{slot}", $"{keyCount}");
+                var resp = server.ExecuteAsync("cluster", "getkeysinslot", $"{slot}", $"{keyCount}").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
 
                 return ((RedisResult[])resp).Select(x => Encoding.ASCII.GetBytes((string)x)).ToList();
             }
@@ -1561,7 +1561,7 @@ namespace Garnet.test.cluster
 
             try
             {
-                return (string)server.Execute("cluster", [.. objects]);
+                return (string)server.ExecuteAsync("cluster", [.. objects]).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception e)
             {
@@ -1580,7 +1580,7 @@ namespace Garnet.test.cluster
 
             try
             {
-                return (string)server.Execute("cluster", [.. objects]);
+                return (string)server.ExecuteAsync("cluster", [.. objects]).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception e)
             {
@@ -1619,11 +1619,11 @@ namespace Garnet.test.cluster
                 string ret;
                 if (nodeid != "")
                 {
-                    ret = (string)server.Execute("cluster", "setslot", $"{slot}", $"{state}", $"{nodeid}");
+                    ret = (string)server.ExecuteAsync("cluster", "setslot", $"{slot}", $"{state}", $"{nodeid}").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 }
                 else
                 {
-                    ret = (string)server.Execute("cluster", "setslot", $"{slot}", $"{state}");
+                    ret = (string)server.ExecuteAsync("cluster", "setslot", $"{slot}", $"{state}").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 }
 
                 return ret;
@@ -1649,7 +1649,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = GetServer(endpoint);
-                var resp = (string)server.Execute("cluster", "slotstate", $"{slot}");
+                var resp = (string)server.ExecuteAsync("cluster", "slotstate", $"{slot}").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 return resp.Split(" ");
             }
             catch (Exception ex)
@@ -1692,7 +1692,7 @@ namespace Garnet.test.cluster
 
             try
             {
-                var resp = server.Execute("migrate", args);
+                var resp = server.ExecuteAsync("migrate", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual((string)resp, "OK");
             }
             catch (Exception ex)
@@ -1720,7 +1720,7 @@ namespace Garnet.test.cluster
             var elapsed = Stopwatch.GetTimestamp();
             try
             {
-                var resp = server.Execute("migrate", args);
+                var resp = server.ExecuteAsync("migrate", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual((string)resp, "OK");
             }
             catch (Exception ex)
@@ -1737,7 +1737,7 @@ namespace Garnet.test.cluster
             var server = redis.GetServer(endPoint);
             try
             {
-                var result = server.Execute("cluster", "MTASKS");
+                var result = server.ExecuteAsync("cluster", "MTASKS").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 return int.Parse((string)result);
             }
             catch (Exception ex)
@@ -1776,9 +1776,9 @@ namespace Garnet.test.cluster
                 {
                     var endPoint = ((IPEndPoint)endpoints[i]);
                     var server = redis.GetServer(endPoint);
-                    var resp = server.Execute("PING");
+                    var resp = server.ExecuteAsync("PING").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                     while (((string)resp) != "PONG")
-                        resp = server.Execute("PING");
+                        resp = server.ExecuteAsync("PING").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 }
             }
             catch (Exception ex)
@@ -1797,7 +1797,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var result = server.Execute("cluster", "slots");
+                var result = server.ExecuteAsync("cluster", "slots").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 if (result.IsNull)
                     return null;
 
@@ -1855,7 +1855,7 @@ namespace Garnet.test.cluster
             {
                 var server = redis.GetServer(endPoint);
                 var args = async ? new List<object>() { "replicate", primaryNodeId, "async" } : new List<object>() { "replicate", primaryNodeId };
-                var result = (string)server.Execute("cluster", args);
+                var result = (string)server.ExecuteAsync("cluster", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual("OK", result);
                 return result;
             }
@@ -1879,7 +1879,7 @@ namespace Garnet.test.cluster
             {
                 var server = redis.GetServer(endPoint);
                 List<object> args = option == null ? ["failover"] : ["failover", option];
-                var result = (string)server.Execute("cluster", args);
+                var result = (string)server.ExecuteAsync("cluster", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual("OK", result);
                 return result;
             }
@@ -1904,7 +1904,7 @@ namespace Garnet.test.cluster
                     primaryNode == null ? "NO" : primaryNode.Address.ToString(),
                     primaryNode == null ? "ONE" : primaryNode.Port.ToString()
                     };
-                var result = (string)server.Execute("replicaof", args);
+                var result = (string)server.ExecuteAsync("replicaof", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual("OK", result);
                 return result;
             }
@@ -1932,7 +1932,7 @@ namespace Garnet.test.cluster
                     Encoding.ASCII.GetBytes(nodeId),
                     Encoding.ASCII.GetBytes(expirySeconds.ToString())
                 };
-                var result = (string)server.Execute("cluster", args);
+                var result = (string)server.ExecuteAsync("cluster", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual("OK", result);
                 return result;
             }
@@ -1958,7 +1958,7 @@ namespace Garnet.test.cluster
                     expiry.ToString()
                 };
 
-                var result = (string)server.Execute("cluster", args);
+                var result = (string)server.ExecuteAsync("cluster", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual("OK", result);
                 return result;
             }
@@ -1983,7 +1983,7 @@ namespace Garnet.test.cluster
                     Encoding.ASCII.GetBytes(key)
                 };
 
-                var result = (string)server.Execute("cluster", args);
+                var result = (string)server.ExecuteAsync("cluster", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 return int.Parse(result);
             }
             catch (Exception ex)
@@ -2002,7 +2002,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                return server.ClusterNodes();
+                return server.ClusterNodesAsync().WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -2052,7 +2052,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var result = server.Execute("cluster", "shards");
+                var result = server.ExecuteAsync("cluster", "shards").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 if (result.IsNull)
                     return null;
                 List<ShardInfo> shards = [];
@@ -2117,7 +2117,7 @@ namespace Garnet.test.cluster
             {
                 try
                 {
-                    var resp = (string)server.Execute("ASKING");
+                    var resp = (string)server.ExecuteAsync("ASKING").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                     ClassicAssert.AreEqual("OK", resp);
                 }
                 catch (Exception ex)
@@ -2131,15 +2131,15 @@ namespace Garnet.test.cluster
             {
                 if (expiry == -1)
                 {
-                    ICollection<object> args = new List<object>() { (object)key, (object)value };
-                    var resp = (string)server.Execute("set", args, CommandFlags.NoRedirect);
+                    ICollection<object> args = [key, value];
+                    var resp = (string)server.ExecuteAsync("set", args, CommandFlags.NoRedirect).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                     ClassicAssert.AreEqual("OK", resp);
                     return ResponseState.OK;
                 }
                 else
                 {
-                    ICollection<object> args = new List<object>() { (object)key, (object)expiry, (object)value };
-                    var resp = (string)server.Execute("setex", args, CommandFlags.NoRedirect);
+                    ICollection<object> args = [key, expiry, value];
+                    var resp = (string)server.ExecuteAsync("setex", args, CommandFlags.NoRedirect).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                     ClassicAssert.AreEqual("OK", resp);
                     return ResponseState.OK;
                 }
@@ -2197,7 +2197,7 @@ namespace Garnet.test.cluster
             {
                 try
                 {
-                    var resp = (string)server.Execute("ASKING");
+                    var resp = (string)server.ExecuteAsync("ASKING").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                     ClassicAssert.AreEqual("OK", resp);
                 }
                 catch (Exception ex)
@@ -2209,8 +2209,8 @@ namespace Garnet.test.cluster
 
             try
             {
-                ICollection<object> args = new List<object>() { (object)key };
-                result = (string)server.Execute("get", args, CommandFlags.NoRedirect);
+                ICollection<object> args = [key];
+                result = (string)server.ExecuteAsync("get", args, CommandFlags.NoRedirect).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 slot = HashSlot(key);
                 responseState = ResponseState.OK;
                 return result;
@@ -2269,7 +2269,7 @@ namespace Garnet.test.cluster
 
             try
             {
-                return (string)server.Execute("mset", args, CommandFlags.NoRedirect);
+                return (string)server.ExecuteAsync("mset", args, CommandFlags.NoRedirect).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception e)
             {
@@ -2314,7 +2314,7 @@ namespace Garnet.test.cluster
 
             try
             {
-                var result = server.Execute("mget", args, CommandFlags.NoRedirect);
+                var result = server.ExecuteAsync("mget", args, CommandFlags.NoRedirect).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 getResult = ((RedisResult[])result).Select(x => (byte[])x).ToList();
                 return "OK";
             }
@@ -2355,7 +2355,7 @@ namespace Garnet.test.cluster
 
                 for (int i = elements.Count - 1; i >= 0; i--) args.Add(elements[i]);
 
-                var result = (int)server.Execute("LPUSH", args);
+                var result = (int)server.ExecuteAsync("LPUSH", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual(elements.Count, result);
             }
             catch (Exception ex)
@@ -2372,7 +2372,7 @@ namespace Garnet.test.cluster
                 var server = GetServer(nodeIndex);
                 var args = new List<object>() { key, "0", "-1" };
 
-                var result = server.Execute("LRANGE", args);
+                var result = server.ExecuteAsync("LRANGE", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 return [.. ((int[])result)];
             }
             catch (Exception ex)
@@ -2392,7 +2392,7 @@ namespace Garnet.test.cluster
 
                 for (int i = elements.Count - 1; i >= 0; i--) args.Add(elements[i]);
 
-                var result = (int)server.Execute("SADD", args);
+                var result = (int)server.ExecuteAsync("SADD", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 ClassicAssert.AreEqual(elements.Count, result);
             }
             catch (Exception ex)
@@ -2409,7 +2409,7 @@ namespace Garnet.test.cluster
                 var server = GetServer(nodeIndex);
                 var args = new List<object>() { key };
 
-                var result = server.Execute("SMEMBERS", args);
+                var result = server.ExecuteAsync("SMEMBERS", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
                 return [.. ((int[])result)];
             }
             catch (Exception ex)
@@ -2589,8 +2589,7 @@ namespace Garnet.test.cluster
             var server = redis.GetServer(endPoint);
             try
             {
-                //var result = (string)server.Execute("info", "replication");
-                var result = server.InfoRawAsync("replication").Result;
+                var result = server.InfoRawAsync("replication").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
                 return ProcessReplicationInfo(result, infoItems);
             }
             catch (Exception ex)
@@ -2741,18 +2740,10 @@ namespace Garnet.test.cluster
             var server = redis.GetServer(endPoint);
             try
             {
-                var previousSaveTicks = (long)server.Execute("LASTSAVE");
+                var previousSaveTicks = (long)server.ExecuteAsync("LASTSAVE").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
 #pragma warning disable CS0618 // Type or member is obsolete
-                server.Save(SaveType.ForegroundSave);
+                server.SaveAsync(SaveType.ForegroundSave).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
 #pragma warning restore CS0618 // Type or member is obsolete
-
-                //// Spin wait for checkpoint to complete
-                //while (true)
-                //{
-                //    var lastSaveTicks = (long)server.Execute("LASTSAVE");
-                //    if (previousSaveTicks < lastSaveTicks) break;
-                //    BackOff(TimeSpan.FromSeconds(1));
-                //}
             }
             catch (Exception ex)
             {
@@ -2769,7 +2760,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                return server.LastSave();
+                return server.LastSaveAsync().WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
             }
             catch (Exception ex)
             {
@@ -2789,7 +2780,7 @@ namespace Garnet.test.cluster
                 var server = redis.GetServer(endPoint);
                 while (true)
                 {
-                    var lastSaveTime = server.LastSave();
+                    var lastSaveTime = server.LastSaveAsync().WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
                     if (lastSaveTime >= time)
                         break;
                     BackOff();
@@ -2810,7 +2801,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                return (int)server.Execute("incrby", key, value);
+                return (int)server.ExecuteAsync("incrby", key, value).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
             }
             catch (Exception ex)
             {
@@ -2828,7 +2819,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var resp = (string)server.Execute("config", "set", parameter, value);
+                var resp = (string)server.ExecuteAsync("config", "set", parameter, value).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
                 ClassicAssert.AreEqual("OK", resp);
             }
             catch (Exception ex)
@@ -2854,7 +2845,7 @@ namespace Garnet.test.cluster
                 }
 
                 var server = redis.GetServer(endPoint);
-                var resp = (string)server.Execute("config", args);
+                var resp = (string)server.ExecuteAsync("config", args).WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
                 ClassicAssert.AreEqual("OK", resp);
             }
             catch (Exception ex)
@@ -2872,7 +2863,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var resp = (string)server.Execute("ACL", "LOAD");
+                var resp = (string)server.ExecuteAsync("ACL", "LOAD").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
                 ClassicAssert.AreEqual("OK", resp);
             }
             catch (Exception ex)
@@ -2903,7 +2894,7 @@ namespace Garnet.test.cluster
             try
             {
                 var server = redis.GetServer(endPoint);
-                var count = (int)server.Execute("DBSIZE");
+                var count = (int)server.ExecuteAsync("DBSIZE").WaitAsync(TestContext.CurrentContext.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult(); ;
                 return count;
             }
             catch (Exception ex)

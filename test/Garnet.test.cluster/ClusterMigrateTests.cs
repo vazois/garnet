@@ -230,7 +230,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(1)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleInitialize()
         {
             context.CreateInstances(defaultShards, useTLS: UseTLS);
@@ -250,7 +250,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(2)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleSlotInfo()
         {
             context.CreateInstances(defaultShards, useTLS: UseTLS);
@@ -356,7 +356,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(4)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSlotChangeStatus()
         {
             context.logger.LogDebug("0. ClusterSlotChangeStatusTest started");
@@ -504,7 +504,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(5)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterRedirectMessage()
         {
             context.logger.LogDebug("0. ClusterRedirectMessageTest started");
@@ -561,7 +561,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(6)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleMigrateSlots()
         {
             context.logger.LogDebug("0. ClusterSimpleMigrateSlotsTest started");
@@ -649,7 +649,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(7)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleMigrateSlotsExpiry()
         {
             context.logger.LogDebug("0. ClusterSimpleMigrateSlotsExpiryTest started");
@@ -835,7 +835,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(8)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleMigrateSlotsWithObjects()
         {
             context.logger.LogDebug("0. ClusterSimpleMigrateSlotsWithObjectsTest started");
@@ -891,7 +891,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(9)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleMigrateKeys()
         {
             context.logger.LogDebug("0. ClusterSimpleMigrateKeysTest started");
@@ -999,7 +999,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(10)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleMigrateKeysWithObjects()
         {
             context.logger.LogDebug("0. ClusterSimpleMigrateKeysWithObjectsTest started");
@@ -1227,7 +1227,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(11)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleMigrateWithReadWrite()
         {
             context.logger.LogDebug("0. ClusterSimpleMigrateTestWithReadWrite started");
@@ -1287,7 +1287,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(12)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterSimpleTxn()
         {
             context.CreateInstances(defaultShards, useTLS: UseTLS);
@@ -1332,7 +1332,7 @@ namespace Garnet.test.cluster
         ];
 
         [Test, Order(13)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         [TestCaseSource("_slotranges")]
         public void ClusterSimpleMigrateSlotsRanges(List<int> migrateRange)
         {
@@ -1384,7 +1384,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(14)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         [TestCaseSource("_slotranges")]
         public void ClusterSimpleMigrateWithAuth(List<int> migrateRange)
         {
@@ -1437,7 +1437,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(15)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterAllowWritesDuringMigrateTest()
         {
             context.logger.LogDebug("0. ClusterSimpleMigrateTestWithReadWrite started");
@@ -1566,7 +1566,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(16)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterMigrateForgetTest()
         {
             context.logger.LogDebug("0. ClusterSimpleMigrateSlotsRanges started");
@@ -1607,7 +1607,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(16)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterMigrateDataSlotsRange()
         {
             var Shards = 2;
@@ -1668,7 +1668,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(16)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterMigrateLargePayload([Values] bool expiration, [Values] bool largePayload)
         {
             var r = new Random(674386);
@@ -1682,7 +1682,7 @@ namespace Garnet.test.cluster
         }
 
         [Test, Order(16)]
-        [Category("CLUSTER")]
+        [Category("CLUSTER"), CancelAfter(ClusterTestContext.clusterTestTimeout)]
         public void ClusterMigrateIncreasingPayload([Values] bool expiration, [Values] bool largeSameSize)
         {
             var r = new Random(674386);

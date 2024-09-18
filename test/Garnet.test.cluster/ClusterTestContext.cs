@@ -19,6 +19,7 @@ namespace Garnet.test.cluster
 {
     internal class ClusterTestContext
     {
+        public const int clusterTestTimeout = 15000;
         public CredentialManager credManager;
         public string TestFolder;
         public GarnetServer[] nodes = null;
