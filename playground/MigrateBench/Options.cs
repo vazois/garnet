@@ -28,5 +28,8 @@ namespace MigrateBench
 
         [Option("timeout", Required = false, Default = 10, HelpText = "Migrate timeout in seconds")]
         public int Timeout { get; set; }
+
+        [Option("verbose", Required = false, Default = false, HelpText = "Count keys for between instances")]
+        public bool Verbose { get; set; }
     }
 }
