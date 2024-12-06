@@ -2961,5 +2961,24 @@ namespace Garnet.test.cluster
                 return -1;
             }
         }
+
+        public void Publish(int nodeIndex, string channel, string message, ILogger logger = null)
+            => Publish((IPEndPoint)endpoints[nodeIndex], channel, message, logger);
+
+        public void Publish(IPEndPoint endPoint, string channel, string message, ILogger logger = null)
+        {
+            try
+            {
+                var server = redis.GetServer(endPoint);
+
+                ICollection<object> args = [channel];
+                var resp = (string)server.Execute("config", args);
+                server.Execute("PUBLISH", args);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, $"An error has occurred; {nameof(Publish)}");
+            }
+        }
     }
 }
