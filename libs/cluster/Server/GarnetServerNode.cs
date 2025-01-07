@@ -200,14 +200,13 @@ namespace Garnet.cluster
         /// </summary>
         /// <param name="configByteArray"></param>
         /// <returns></returns>
-        public MemoryResult<byte> TryMeet(byte[] configByteArray)
+        public async Task<MemoryResult<byte>> TryMeet(byte[] configByteArray)
         {
             try
             {
                 _ = meetLock.TryWriteLock();
                 UpdateGossipSend();
-                var resp = gc.GossipWithMeet(configByteArray).WaitAsync(clusterProvider.clusterManager.clusterTimeout, cts.Token).GetAwaiter().GetResult();
-                return resp;
+                return await gc.GossipWithMeet(configByteArray).WaitAsync(clusterProvider.clusterManager.clusterTimeout, cts.Token);
             }
             finally
             {

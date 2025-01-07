@@ -143,7 +143,7 @@ namespace Garnet.cluster
         /// <param name="address">Address of node to issue meet to</param>
         /// <param name="port"> Port of node to issue meet to</param>
         /// <param name="acquireLock">Whether to acquire lock for merging. Default true</param>
-        public void TryMeet(string address, int port, bool acquireLock = true)
+        public async Task TryMeet(string address, int port, bool acquireLock = true)
         {
             GarnetServerNode gsn = null;
             var conf = CurrentConfig;
@@ -168,7 +168,7 @@ namespace Garnet.cluster
                 gsn.Initialize();
 
                 // Send full config in Gossip
-                resp = gsn.TryMeet(conf.ToByteArray());
+                resp = await gsn.TryMeet(conf.ToByteArray());
                 if (resp.Length > 0)
                 {
                     var other = ClusterConfig.FromByteArray(resp.Span.ToArray());

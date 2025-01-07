@@ -91,7 +91,7 @@ namespace Garnet.cluster
                 // Lock config merge to avoid a background epoch bump
                 clusterProvider.clusterManager.SuspendConfigMerge();
                 configResumed = false;
-                clusterProvider.clusterManager.TryMeet(_targetAddress, _targetPort, acquireLock: false);
+                clusterProvider.clusterManager.TryMeet(_targetAddress, _targetPort, acquireLock: false).GetAwaiter().GetResult();
 
                 // Change ownership of slots to target node.
                 if (!TrySetSlotRanges(GetTargetNodeId, MigrateState.NODE))
@@ -112,7 +112,7 @@ namespace Garnet.cluster
                 }
 
                 // Gossip again to ensure that source and target agree on the slot exchange
-                clusterProvider.clusterManager.TryMeet(_targetAddress, _targetPort, acquireLock: false);
+                clusterProvider.clusterManager.TryMeet(_targetAddress, _targetPort, acquireLock: false).GetAwaiter().GetResult();
 
                 // Ensure that config merge resumes
                 clusterProvider.clusterManager.ResumeConfigMerge();
