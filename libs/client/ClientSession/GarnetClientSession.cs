@@ -2,6 +2,7 @@
 // Licensed under the MIT license.
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Security;
@@ -28,6 +29,8 @@ namespace Garnet.client
         readonly ElasticCircularBuffer<TaskType> tasksTypes = new();
         readonly ElasticCircularBuffer<TaskCompletionSource<string>> tcsQueue = new();
         readonly ElasticCircularBuffer<TaskCompletionSource<string[]>> tcsArrayQueue = new();
+        readonly ElasticCircularBuffer<TaskCompletionSource<MemoryResult<byte>>> tcsByteArrayQueue = new();
+        readonly MemoryPool<byte> memoryPool;
         readonly ILogger logger;
 
         /// <summary>
@@ -115,6 +118,7 @@ namespace Garnet.client
             this.networkBufferSettings = networkBufferSettings;
             this.networkPool = networkPool ?? networkBufferSettings.CreateBufferPool();
             this.bufferSizeDigits = NumUtils.NumDigits(this.networkBufferSettings.sendBufferSize);
+            this.memoryPool = MemoryPool<byte>.Shared;
 
             this.logger = logger;
             this.sslOptions = tlsOptions;
@@ -361,7 +365,6 @@ namespace Garnet.client
         private int ProcessReplies(byte* recvBufferPtr, int bytesRead)
         {
             // Debug.WriteLine("RECV: [" + Encoding.UTF8.GetString(new Span<byte>(recvBufferPtr, bytesRead)).Replace("\n", "|").Replace("\r", "") + "]");
-
             string result = null;
             string[] resultArray = null;
             bool isArray = false;
@@ -406,12 +409,13 @@ namespace Garnet.client
 
                 if (!success) return readHead;
                 readHead = (int)(ptr - recvBufferPtr);
-
                 Interlocked.Decrement(ref numCommands);
+
                 if (isArray)
                 {
                     var tcs = tcsArrayQueue.Dequeue();
-                    tcs?.SetResult(resultArray);
+                    if (error) tcs?.SetException(new Exception(result));
+                    else tcs?.SetResult(resultArray);
                 }
                 else
                 {
@@ -419,6 +423,47 @@ namespace Garnet.client
                     if (error) tcs?.SetException(new Exception(result));
                     else tcs?.SetResult(result);
                 }
+            }
+            return readHead;
+        }
+
+        private int ProcessByteArrayReplies(byte* recvBufferPtr, int bytesRead)
+        {
+            // Debug.WriteLine("RECV: [" + Encoding.UTF8.GetString(new Span<byte>(recvBufferPtr, bytesRead)).Replace("\n", "|").Replace("\r", "") + "]");
+
+            MemoryResult<byte> byteResult = default;
+            string result = null;
+            byte* ptr = recvBufferPtr;
+            bool error = false;
+            bool success = true;
+            int readHead = 0;
+
+            while (readHead < bytesRead)
+            {
+                switch (*ptr)
+                {
+                    case (byte)'-':
+                        error = true;
+                        if (!RespReadResponseUtils.ReadErrorAsString(out result, ref ptr, recvBufferPtr + bytesRead))
+                            success = false;
+                        break;
+
+                    case (byte)'$':
+                        if (!RespReadResponseUtils.ReadStringWithLengthHeader(memoryPool, out byteResult, ref ptr, recvBufferPtr + bytesRead))
+                            success = false;
+                        break;
+
+                    default:
+                        throw new Exception("Unexpected response: " + Encoding.UTF8.GetString(new Span<byte>(recvBufferPtr, bytesRead)).Replace("\n", "|").Replace("\r", "") + "]");
+                }
+
+                if (!success) return readHead;
+                readHead = (int)(ptr - recvBufferPtr);
+                Interlocked.Decrement(ref numCommands);
+
+                var tcs = tcsByteArrayQueue.Dequeue();
+                if (error) tcs?.SetException(new Exception(result));
+                else tcs?.SetResult(byteResult);
             }
             return readHead;
         }
@@ -498,6 +543,6 @@ namespace Garnet.client
 
         /// <inheritdoc />
         public int TryConsumeMessages(byte* reqBuffer, int bytesRead)
-            => ProcessReplies(reqBuffer, bytesRead);
+            => tcsByteArrayQueue.IsEmpty() ? ProcessReplies(reqBuffer, bytesRead) : ProcessByteArrayReplies(reqBuffer, bytesRead);
     }
 }

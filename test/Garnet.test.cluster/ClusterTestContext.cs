@@ -64,7 +64,7 @@ namespace Garnet.test.cluster
             waiter?.Dispose();
             clusterTestUtils?.Dispose();
             loggerFactory?.Dispose();
-            if (!Task.Run(() => DisposeCluster()).Wait(TimeSpan.FromSeconds(15)))
+            if (!Task.Run(() => DisposeCluster()).Wait(TimeSpan.FromSeconds(5)))
                 logger?.LogError("Timed out waiting for DisposeCluster");
             if (!Task.Run(() => TestUtils.DeleteDirectory(TestFolder, true)).Wait(TimeSpan.FromSeconds(15)))
                 logger?.LogError("Timed out waiting for DisposeCluster");

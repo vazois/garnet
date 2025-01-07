@@ -16,19 +16,20 @@ namespace Garnet.client
     public sealed unsafe partial class GarnetClientSession : IServerHook, IMessageConsumer
     {
         static ReadOnlySpan<byte> GOSSIP => "GOSSIP"u8;
+        static ReadOnlySpan<byte> WITHMEET => "WITHMEET"u8;
 
         /// <summary>
         /// Send gossip message to corresponding node
         /// </summary>
-        /// <param name="byteArray"></param>
+        /// <param name="data"></param>
+        /// <param name="meet"></param>
         /// <returns></returns>
-        public Task<string> ExecuteGossip(Memory<byte> byteArray)
+        public Task<MemoryResult<byte>> ExecuteGossip(Memory<byte> data, bool meet = false)
         {
-            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-            tcsQueue.Enqueue(tcs);
+            var tcs = new TaskCompletionSource<MemoryResult<byte>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            tcsByteArrayQueue.Enqueue(tcs);
             byte* curr = offset;
-            byte* next = offset;
-            int arraySize = 3;
+            int arraySize = meet ? 4 : 3;
 
             while (!RespWriteUtils.WriteArrayLength(arraySize, ref curr, end))
             {
@@ -53,8 +54,19 @@ namespace Garnet.client
             }
             offset = curr;
 
-            //3
-            while (!RespWriteUtils.WriteBulkString(byteArray.Span, ref curr, end))
+            if (meet)
+            {
+                //3
+                while (!RespWriteUtils.WriteBulkString(WITHMEET, ref curr, end))
+                {
+                    Flush();
+                    curr = offset;
+                }
+                offset = curr;
+            }
+
+            //4
+            while (!RespWriteUtils.WriteBulkString(data.Span, ref curr, end))
             {
                 Flush();
                 curr = offset;

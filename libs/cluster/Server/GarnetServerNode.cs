@@ -14,7 +14,7 @@ namespace Garnet.cluster
     internal sealed class GarnetServerNode
     {
         readonly ClusterProvider clusterProvider;
-        readonly GarnetClient gc;
+        readonly GarnetClientSession gcs;
 
         long gossipSend;
         long gossipRecv;
@@ -30,9 +30,9 @@ namespace Garnet.cluster
         ClusterConfig lastConfig = null;
 
         /// <summary>
-        /// Gossip with meet command lock
+        /// Lock used for GarnetClientSession to avoid parallel gossip issues by main gossip thread and meet request
         /// </summary>
-        SingleWriterMultiReaderLock meetLock;
+        SingleWriterMultiReaderLock gcsLock;
 
         /// <summary>
         /// Outstanding gossip task if any
@@ -47,7 +47,7 @@ namespace Garnet.cluster
         /// <summary>
         /// GarnetClient connection
         /// </summary>
-        public GarnetClient Client => gc;
+        public GarnetClient Client => null;
 
         /// <summary>
         /// NodeId of remote node
@@ -77,13 +77,17 @@ namespace Garnet.cluster
             this.clusterProvider = clusterProvider;
             this.Address = address;
             this.Port = port;
-            this.gc = new GarnetClient(
-                address, port, tlsOptions,
-                sendPageSize: 1 << 17,
-                maxOutstandingTasks: 8,
+
+            this.gcs = new(
+                address,
+                port,
+                networkBufferSettings: new NetworkBufferSettings(1 << 17),
+                networkPool: null,
+                tlsOptions,
                 authUsername: clusterProvider.clusterManager.clusterProvider.ClusterUsername,
                 authPassword: clusterProvider.clusterManager.clusterProvider.ClusterPassword,
                 logger: logger);
+
             this.initialized = 0;
             this.logger = logger;
             this.gossipRecv = 0;
@@ -97,11 +101,19 @@ namespace Garnet.cluster
         /// </summary>
         public void Initialize()
         {
-            // Ensure initialize executes only once
-            if (Interlocked.CompareExchange(ref initialized, 1, 0) != 0) return;
+            try
+            {
+                gcsLock.WriteLock();
+                // Ensure initialize executes only once
+                if (Interlocked.CompareExchange(ref initialized, 1, 0) != 0) return;
 
-            cts = CancellationTokenSource.CreateLinkedTokenSource(clusterProvider.clusterManager.ctsGossip.Token, internalCts.Token);
-            gc.ReconnectAsync().WaitAsync(clusterProvider.clusterManager.gossipDelay, cts.Token).GetAwaiter().GetResult();
+                cts = CancellationTokenSource.CreateLinkedTokenSource(clusterProvider.clusterManager.ctsGossip.Token, internalCts.Token);
+                gcs.Reconnect(clusterProvider.clusterManager.gossipDelay.Milliseconds, cts.Token);
+            }
+            finally
+            {
+                gcsLock.WriteUnlock();
+            }
         }
 
         public void Dispose()
@@ -114,13 +126,14 @@ namespace Garnet.cluster
                 cts?.Dispose();
                 internalCts?.Cancel();
                 internalCts?.Dispose();
-                gc?.Dispose();
+                gcs?.Dispose();
             }
             catch { }
         }
 
         void UpdateGossipSend() => this.gossipSend = DateTimeOffset.UtcNow.Ticks;
         void UpdateGossipRecv() => this.gossipRecv = DateTimeOffset.UtcNow.Ticks;
+
         void ResetCts()
         {
             bool internalCtsDisposed = false;
@@ -169,30 +182,44 @@ namespace Garnet.cluster
         /// <returns></returns>
         private Task Gossip(byte[] configByteArray)
         {
-            return gc.Gossip(configByteArray).ContinueWith(t =>
+            try
             {
-                try
+                gcsLock.WriteLock();
+                return gcs.ExecuteGossip(configByteArray).ContinueWith(t =>
                 {
-                    var resp = t.Result;
-                    if (resp.Length > 0)
+                    try
                     {
-                        clusterProvider.clusterManager.gossipStats.UpdateGossipBytesRecv(resp.Length);
-                        var returnedConfigArray = resp.Span.ToArray();
-                        var other = ClusterConfig.FromByteArray(returnedConfigArray);
-                        var current = clusterProvider.clusterManager.CurrentConfig;
-                        // Check if gossip is from a node that is known and trusted before merging
-                        if (current.IsKnown(other.LocalNodeId))
-                            clusterProvider.clusterManager.TryMerge(ClusterConfig.FromByteArray(returnedConfigArray));
-                        else
-                            logger?.LogWarning("Received gossip from unknown node: {node-id}", other.LocalNodeId);
+                        var resp = t.Result;
+                        if (resp.Length > 0)
+                        {
+                            clusterProvider.clusterManager.gossipStats.UpdateGossipBytesRecv(resp.Length);
+                            var returnedConfigArray = resp.Span.ToArray();
+                            var other = ClusterConfig.FromByteArray(returnedConfigArray);
+                            var current = clusterProvider.clusterManager.CurrentConfig;
+                            // Check if gossip is from a node that is known and trusted before merging
+                            if (current.IsKnown(other.LocalNodeId))
+                                clusterProvider.clusterManager.TryMerge(ClusterConfig.FromByteArray(returnedConfigArray));
+                            else
+                                logger?.LogWarning("Received gossip from unknown node: {node-id}", other.LocalNodeId);
+                        }
+                        resp.Dispose();
                     }
-                    resp.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogCritical(ex, "GOSSIP faulted processing response");
-                }
-            }, TaskContinuationOptions.OnlyOnRanToCompletion).WaitAsync(clusterProvider.clusterManager.gossipDelay, cts.Token);
+                    catch (Exception ex)
+                    {
+                        logger?.LogCritical(ex, "GOSSIP faulted processing response");
+                    }
+                    finally
+                    {
+                        gcsLock.WriteUnlock();
+                    }
+                }, TaskContinuationOptions.OnlyOnRanToCompletion).WaitAsync(clusterProvider.clusterManager.gossipDelay, cts.Token);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogCritical(ex, "GOSSIP faulted at send");
+                gcsLock.WriteUnlock();
+                return null;
+            }
         }
 
         /// <summary>
@@ -204,13 +231,13 @@ namespace Garnet.cluster
         {
             try
             {
-                _ = meetLock.TryWriteLock();
+                gcsLock.WriteLock();
                 UpdateGossipSend();
-                return await gc.GossipWithMeet(configByteArray).WaitAsync(clusterProvider.clusterManager.clusterTimeout, cts.Token);
+                return await gcs.ExecuteGossip(configByteArray, meet: true).WaitAsync(clusterProvider.clusterManager.clusterTimeout, cts.Token);
             }
             finally
             {
-                meetLock.WriteUnlock();
+                gcsLock.WriteUnlock();
             }
         }
 
@@ -227,6 +254,9 @@ namespace Garnet.cluster
                 // Issue first time gossip
                 var configArray = clusterProvider.clusterManager.CurrentConfig.ToByteArray();
                 gossipTask = Gossip(configArray);
+                // Handle fault at send
+                if (gossipTask == null) return false;
+
                 UpdateGossipSend();
                 clusterProvider.clusterManager.gossipStats.gossip_full_send++;
                 // Track bytes send
@@ -267,7 +297,7 @@ namespace Garnet.cluster
             {
                 ping = gossipSend,
                 pong = gossipRecv,
-                connected = gc.IsConnected,
+                connected = gcs.IsConnected,
                 lastIO = last_io_seconds,
             };
         }

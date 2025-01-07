@@ -19,56 +19,9 @@ namespace Garnet.cluster
         GarnetClient primaryClient = null;
 
         /// <summary>
-        /// Set to true to re-use established gossip connections for failover.
-        /// Note connection might abruptly close due to timeout.
-        /// Increase gossip-delay to avoid shutting down connections prematurely during a failover.
-        /// </summary>
-        bool useGossipConnections = false;
-
-        /// <summary>
         /// Send page size for GarnetClient
         /// </summary>
         const int sendPageSize = 1 << 17;
-
-        /// <summary>
-        /// Helper method to re-use gossip connection to perform the failover
-        /// </summary>
-        /// <param name="nodeId">Node-id to use for search the connection array</param>
-        /// <returns></returns>
-        /// <exception cref="GarnetException"></exception>
-        private GarnetClient GetOrAddConnection(string nodeId)
-        {
-            _ = clusterProvider.clusterManager.clusterConnectionStore.GetConnection(nodeId, out var gsn);
-
-            // If connection not available try to initialize it
-            if (gsn == null)
-            {
-                var (address, port) = oldConfig.GetEndpointFromNodeId(nodeId);
-                gsn = new GarnetServerNode(
-                    clusterProvider,
-                    address,
-                    port,
-                    clusterProvider.storeWrapper.serverOptions.TlsOptions?.TlsClientOptions,
-                    logger: logger);
-
-                // Try add connection to the connection store
-                if (!clusterProvider.clusterManager.clusterConnectionStore.AddConnection(gsn))
-                {
-                    // If failed to add dispose connection resources
-                    gsn.Dispose();
-                    // Retry to get established connection if it was added after our first attempt
-                    _ = clusterProvider.clusterManager.clusterConnectionStore.GetConnection(nodeId, out gsn);
-                }
-
-                // Final check fail, if connection is not established.
-                if (gsn == null)
-                    throw new GarnetException($"Connection not established to node {nodeId}");
-            }
-
-            gsn.Initialize();
-
-            return gsn.Client;
-        }
 
         /// <summary>
         /// Helper method to establish connection towards remote node
@@ -96,8 +49,7 @@ namespace Garnet.cluster
             }
             catch (Exception ex)
             {
-                if (!useGossipConnections)
-                    client?.Dispose();
+                client?.Dispose();
                 logger?.LogError(ex, "ReplicaFailoverSession.CreateConnection");
                 return null;
             }
@@ -110,7 +62,7 @@ namespace Garnet.cluster
         /// <returns></returns>
         private GarnetClient GetConnection(string nodeId)
         {
-            return useGossipConnections ? GetOrAddConnection(nodeId) : CreateConnection(nodeId);
+            return CreateConnection(nodeId);
         }
 
         /// <summary>
@@ -263,8 +215,7 @@ namespace Garnet.cluster
             }
             finally
             {
-                if (!useGossipConnections)
-                    client?.Dispose();
+                client?.Dispose();
             }
         }
 
