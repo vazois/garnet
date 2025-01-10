@@ -339,41 +339,69 @@ namespace Garnet.test.cluster
         [TestCase("HCOLLECT")]
         [TestCase("CLUSTERGETPROC")]
         [TestCase("CLUSTERSETPROC")]
-        [TestCase("WATCH")]
         [TestCase("WATCHMS")]
         [TestCase("WATCHOS")]
         [TestCase("SINTERCARD")]
         [TestCase("EVALSHA")]
         [TestCase("LCS")]
-        public void ClusterCLUSTERDOWNTest(string commandName)
+        public void ClusterASKTest(string commandName)
         {
-            var requestNodeIndex = otherIndex;
+            var requestNodeIndex = sourceIndex;
+            var address = "127.0.0.1";
+            var port = context.clusterTestUtils.GetPortFromNodeIndex(targetIndex);
             var dummyCommand = new DummyCommand(commandName);
             ClassicAssert.IsTrue(TestCommands.TryGetValue(dummyCommand, out var command), "Command not found");
 
             Initialize(command);
 
-            for (var i = 0; i < iterations; i++)
-                SERedisClusterDown(command);
+            ConfigureSlotForMigration();
 
-            for (var i = 0; i < iterations; i++)
-                GarnetClientSessionClusterDown(command);
-
-            void SERedisClusterDown(BaseCommand command)
+            try
             {
+                for (var i = 0; i < iterations; i++)
+                    SERedisASKTest(command);
+
+                for (var i = 0; i < iterations; i++)
+                    GarnetClientSessionASKTest(command);
+            }
+            finally
+            {
+                ResetSlot();
                 try
                 {
-                    _ = context.clusterTestUtils.GetServer(requestNodeIndex).Execute(command.Command, command.GetSingleSlotRequest());
+                    var resp = (string)context.clusterTestUtils.GetServer(requestNodeIndex).Execute("DEL", [.. command.GetSingleSlotKeys], CommandFlags.NoRedirect);
                 }
                 catch (Exception ex)
                 {
-                    ClassicAssert.AreEqual("CLUSTERDOWN Hash slot not served", ex.Message, command.Command);
+                    context.logger?.LogError(ex, "Failed executing cleanup {command}", command.Command);
+                    Assert.Fail($"Failed executing cleanup. Command: {command.Command}");
+                }
+            }
+
+            void SERedisASKTest(BaseCommand command)
+            {
+                RedisResult result = default;
+                try
+                {
+                    result = context.clusterTestUtils.GetServer(requestNodeIndex).Execute(command.Command, command.GetSingleSlotRequest(), CommandFlags.NoRedirect);
+                }
+                catch (Exception ex)
+                {
+                    var tokens = ex.Message.Split(' ');
+                    ClassicAssert.IsTrue(tokens.Length > 10 && tokens[0].Equals("Endpoint"), command.Command + " => " + ex.Message);
+
+                    var _address = tokens[1].Split(':')[0];
+                    var _port = int.Parse(tokens[1].Split(':')[1]);
+                    var _slot = int.Parse(tokens[4]);
+                    ClassicAssert.AreEqual(address, _address, command.Command);
+                    ClassicAssert.AreEqual(port, _port, command.Command);
+                    ClassicAssert.AreEqual(command.GetSlot, _slot, command.Command);
                     return;
                 }
                 Assert.Fail($"Should not reach here. Command: {command.Command}");
             }
 
-            void GarnetClientSessionClusterDown(BaseCommand command)
+            void GarnetClientSessionASKTest(BaseCommand command)
             {
                 var client = context.clusterTestUtils.GetGarnetClientSession(requestNodeIndex);
                 try
@@ -382,7 +410,7 @@ namespace Garnet.test.cluster
                 }
                 catch (Exception ex)
                 {
-                    ClassicAssert.AreEqual("CLUSTERDOWN Hash slot not served", ex.Message, command.Command);
+                    ClassicAssert.AreEqual($"ASK {command.GetSlot} {address}:{port}", ex.Message, command.Command);
                     return;
                 }
                 Assert.Fail($"Should not reach here. Command: {command.Command}");
@@ -430,8 +458,6 @@ namespace Garnet.test.cluster
         [TestCase("SINTERSTORE")]
         [TestCase("SINTER")]
         [TestCase("LMOVE")]
-        [TestCase("EVAL")]
-        [TestCase("EVALSHA")]
         [TestCase("LPUSH")]
         [TestCase("LPOP")]
         [TestCase("LMPOP")]
@@ -503,35 +529,27 @@ namespace Garnet.test.cluster
         [TestCase("HCOLLECT")]
         [TestCase("CLUSTERGETPROC")]
         [TestCase("CLUSTERSETPROC")]
+        [TestCase("WATCH")]
         [TestCase("WATCHMS")]
         [TestCase("WATCHOS")]
         [TestCase("SINTERCARD")]
+        [TestCase("EVALSHA")]
         [TestCase("LCS")]
-        public void ClusterOKTest(string commandName)
+        public void ClusterCLUSTERDOWNTest(string commandName)
         {
-            var requestNodeIndex = sourceIndex;
+            var requestNodeIndex = otherIndex;
             var dummyCommand = new DummyCommand(commandName);
             ClassicAssert.IsTrue(TestCommands.TryGetValue(dummyCommand, out var command), "Command not found");
 
             Initialize(command);
 
             for (var i = 0; i < iterations; i++)
-                SERedisOKTest(command);
+                SERedisClusterDown(command);
 
             for (var i = 0; i < iterations; i++)
-                GarnetClientSessionOK(command);
+                GarnetClientSessionClusterDown(command);
 
-            try
-            {
-                var resp = (string)context.clusterTestUtils.GetServer(requestNodeIndex).Execute("DEL", [.. command.GetSingleSlotKeys], CommandFlags.NoRedirect);
-            }
-            catch (Exception ex)
-            {
-                context.logger?.LogError(ex, "Failed executing cleanup {command}", command.Command);
-                Assert.Fail($"Failed executing cleanup. Command: {command.Command}");
-            }
-
-            void SERedisOKTest(BaseCommand command)
+            void SERedisClusterDown(BaseCommand command)
             {
                 try
                 {
@@ -539,26 +557,25 @@ namespace Garnet.test.cluster
                 }
                 catch (Exception ex)
                 {
-                    if (!command.RequiresExistingKey)
-                        Assert.Fail($"{ex.Message}. Command: {command.Command}");
+                    ClassicAssert.AreEqual("CLUSTERDOWN Hash slot not served", ex.Message, command.Command);
+                    return;
                 }
+                Assert.Fail($"Should not reach here. Command: {command.Command}");
             }
 
-            void GarnetClientSessionOK(BaseCommand command)
+            void GarnetClientSessionClusterDown(BaseCommand command)
             {
                 var client = context.clusterTestUtils.GetGarnetClientSession(requestNodeIndex);
                 try
                 {
-                    if (command.ArrayResponse)
-                        _ = client.ExecuteForArrayAsync(command.GetSingleSlotRequestWithCommand).GetAwaiter().GetResult();
-                    else
-                        _ = client.ExecuteAsync(command.GetSingleSlotRequestWithCommand).GetAwaiter().GetResult();
+                    _ = client.ExecuteAsync(command.GetSingleSlotRequestWithCommand).GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
                 {
-                    if (!command.RequiresExistingKey)
-                        Assert.Fail($"{ex.Message}. Command: {command.Command}");
+                    ClassicAssert.AreEqual("CLUSTERDOWN Hash slot not served", ex.Message, command.Command);
+                    return;
                 }
+                Assert.Fail($"Should not reach here. Command: {command.Command}");
             }
         }
 
@@ -941,6 +958,8 @@ namespace Garnet.test.cluster
         [TestCase("SINTERSTORE")]
         [TestCase("SINTER")]
         [TestCase("LMOVE")]
+        [TestCase("EVAL")]
+        [TestCase("EVALSHA")]
         [TestCase("LPUSH")]
         [TestCase("LPOP")]
         [TestCase("LMPOP")]
@@ -1015,78 +1034,59 @@ namespace Garnet.test.cluster
         [TestCase("WATCHMS")]
         [TestCase("WATCHOS")]
         [TestCase("SINTERCARD")]
-        [TestCase("EVALSHA")]
         [TestCase("LCS")]
-        public void ClusterASKTest(string commandName)
+        public void ClusterOKTest(string commandName)
         {
             var requestNodeIndex = sourceIndex;
-            var address = "127.0.0.1";
-            var port = context.clusterTestUtils.GetPortFromNodeIndex(targetIndex);
             var dummyCommand = new DummyCommand(commandName);
             ClassicAssert.IsTrue(TestCommands.TryGetValue(dummyCommand, out var command), "Command not found");
 
             Initialize(command);
 
-            ConfigureSlotForMigration();
+            for (var i = 0; i < iterations; i++)
+                SERedisOKTest(command);
+
+            for (var i = 0; i < iterations; i++)
+                GarnetClientSessionOK(command);
 
             try
             {
-                for (var i = 0; i < iterations; i++)
-                    SERedisASKTest(command);
-
-                for (var i = 0; i < iterations; i++)
-                    GarnetClientSessionASKTest(command);
+                var resp = (string)context.clusterTestUtils.GetServer(requestNodeIndex).Execute("DEL", [.. command.GetSingleSlotKeys], CommandFlags.NoRedirect);
             }
-            finally
+            catch (Exception ex)
             {
-                ResetSlot();
+                context.logger?.LogError(ex, "Failed executing cleanup {command}", command.Command);
+                Assert.Fail($"Failed executing cleanup. Command: {command.Command}");
+            }
+
+            void SERedisOKTest(BaseCommand command)
+            {
                 try
                 {
-                    var resp = (string)context.clusterTestUtils.GetServer(requestNodeIndex).Execute("DEL", [.. command.GetSingleSlotKeys], CommandFlags.NoRedirect);
+                    _ = context.clusterTestUtils.GetServer(requestNodeIndex).Execute(command.Command, command.GetSingleSlotRequest());
                 }
                 catch (Exception ex)
                 {
-                    context.logger?.LogError(ex, "Failed executing cleanup {command}", command.Command);
-                    Assert.Fail($"Failed executing cleanup. Command: {command.Command}");
+                    if (!command.RequiresExistingKey)
+                        Assert.Fail($"{ex.Message}. Command: {command.Command}");
                 }
             }
 
-            void SERedisASKTest(BaseCommand command)
-            {
-                RedisResult result = default;
-                try
-                {
-                    result = context.clusterTestUtils.GetServer(requestNodeIndex).Execute(command.Command, command.GetSingleSlotRequest(), CommandFlags.NoRedirect);
-                }
-                catch (Exception ex)
-                {
-                    var tokens = ex.Message.Split(' ');
-                    ClassicAssert.IsTrue(tokens.Length > 10 && tokens[0].Equals("Endpoint"), command.Command + " => " + ex.Message);
-
-                    var _address = tokens[1].Split(':')[0];
-                    var _port = int.Parse(tokens[1].Split(':')[1]);
-                    var _slot = int.Parse(tokens[4]);
-                    ClassicAssert.AreEqual(address, _address, command.Command);
-                    ClassicAssert.AreEqual(port, _port, command.Command);
-                    ClassicAssert.AreEqual(command.GetSlot, _slot, command.Command);
-                    return;
-                }
-                Assert.Fail($"Should not reach here. Command: {command.Command}");
-            }
-
-            void GarnetClientSessionASKTest(BaseCommand command)
+            void GarnetClientSessionOK(BaseCommand command)
             {
                 var client = context.clusterTestUtils.GetGarnetClientSession(requestNodeIndex);
                 try
                 {
-                    _ = client.ExecuteAsync(command.GetSingleSlotRequestWithCommand).GetAwaiter().GetResult();
+                    if (command.ArrayResponse)
+                        _ = client.ExecuteForArrayAsync(command.GetSingleSlotRequestWithCommand).GetAwaiter().GetResult();
+                    else
+                        _ = client.ExecuteAsync(command.GetSingleSlotRequestWithCommand).GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
                 {
-                    ClassicAssert.AreEqual($"ASK {command.GetSlot} {address}:{port}", ex.Message, command.Command);
-                    return;
+                    if (!command.RequiresExistingKey)
+                        Assert.Fail($"{ex.Message}. Command: {command.Command}");
                 }
-                Assert.Fail($"Should not reach here. Command: {command.Command}");
             }
         }
 
