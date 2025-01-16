@@ -25,8 +25,8 @@ namespace Garnet.server
         where TKeyValueSerializer : IKeySerializer<TKey>
     {
         private int sid = 0;
-        private ConcurrentDictionary<byte[], ConcurrentDictionary<int, ServerSessionBase>> subscriptions;
-        private ConcurrentDictionary<byte[], (bool, ConcurrentDictionary<int, ServerSessionBase>)> prefixSubscriptions;
+        private ConcurrentDictionary<ByteArraySpan, ConcurrentDictionary<int, ServerSessionBase>> subscriptions;
+        private ConcurrentDictionary<ByteArraySpan, (bool, ConcurrentDictionary<int, ServerSessionBase>)> prefixSubscriptions;
         private AsyncQueue<(byte[], byte[])> publishQueue;
         readonly IKeySerializer<TKey> keySerializer;
         readonly TsavoriteLog log;
@@ -64,8 +64,8 @@ namespace Garnet.server
             {
                 foreach (var subscribedkey in subscriptions.Keys)
                 {
-                    fixed (byte* keyPtr = &subscribedkey[0])
-                        this.Unsubscribe(keyPtr, (ServerSessionBase)session);
+                    var ss = new ArgSlice(subscribedkey.ptr, subscribedkey.length);
+                    Unsubscribe(ref ss, (ServerSessionBase)session);
                 }
             }
 
@@ -73,61 +73,57 @@ namespace Garnet.server
             {
                 foreach (var subscribedkey in prefixSubscriptions.Keys)
                 {
-                    fixed (byte* keyPtr = &subscribedkey[0])
-                        this.PUnsubscribe(keyPtr, (ServerSessionBase)session);
+                    var ss = new ArgSlice(subscribedkey.ptr, subscribedkey.length);
+                    PUnsubscribe(ref ss, (ServerSessionBase)session);
                 }
             }
         }
 
-        private unsafe int Broadcast(byte[] key, byte* valPtr, int valLength, bool ascii)
+        private unsafe int Broadcast(ByteArraySpan key, ByteArraySpan val, bool ascii)
         {
             int numSubscribers = 0;
 
-            fixed (byte* ptr = &key[0])
+            var keyPtr = key.ptr;
+            if (subscriptions != null)
             {
-                byte* keyPtr = ptr;
-
-                if (subscriptions != null)
+                var foundSubscription = subscriptions.TryGetValue(key, out var subscriptionServerSessionDict);
+                if (foundSubscription)
                 {
-                    bool foundSubscription = subscriptions.TryGetValue(key, out var subscriptionServerSessionDict);
-                    if (foundSubscription)
+                    foreach (var sub in subscriptionServerSessionDict)
                     {
-                        foreach (var sub in subscriptionServerSessionDict)
+                        byte* keyBytePtr = key.ptr;
+                        byte* nullBytePtr = null;
+                        byte* valBytePtr = val.ptr;
+                        sub.Value.Publish(ref keyBytePtr, key.length, ref valBytePtr, val.length, ref nullBytePtr, sub.Key);
+                        numSubscribers++;
+                    }
+                }
+            }
+
+            if (prefixSubscriptions != null)
+            {
+                foreach (var kvp in prefixSubscriptions)
+                {
+                    var subscribedPrefixPtr = kvp.Key.ptr;
+                    var subPrefixPtr = subscribedPrefixPtr;
+                    var reqKeyPtr = keyPtr;
+
+                    var match = keySerializer.Match(ref keySerializer.ReadKeyByRef(ref reqKeyPtr), ascii,
+                        ref keySerializer.ReadKeyByRef(ref subPrefixPtr), kvp.Value.Item1);
+                    if (match)
+                    {
+                        foreach (var sub in kvp.Value.Item2)
                         {
-                            byte* keyBytePtr = ptr;
+                            byte* keyBytePtr = keyPtr;
                             byte* nullBytePtr = null;
-                            byte* valBytePtr = valPtr;
-                            sub.Value.Publish(ref keyBytePtr, key.Length, ref valBytePtr, valLength, ref nullBytePtr, sub.Key);
+                            byte* valBytePtr = val.ptr;
+                            sub.Value.PrefixPublish(subscribedPrefixPtr, kvp.Key.length, ref keyBytePtr, key.length, ref valBytePtr, val.length, ref nullBytePtr, sub.Key);
                             numSubscribers++;
                         }
                     }
                 }
-
-                if (prefixSubscriptions != null)
-                {
-                    foreach (var kvp in prefixSubscriptions)
-                    {
-                        fixed (byte* subscribedPrefixPtr = &kvp.Key[0])
-                        {
-                            byte* subPrefixPtr = subscribedPrefixPtr;
-                            byte* reqKeyPtr = ptr;
-
-                            bool match = keySerializer.Match(ref keySerializer.ReadKeyByRef(ref reqKeyPtr), ascii,
-                                ref keySerializer.ReadKeyByRef(ref subPrefixPtr), kvp.Value.Item1);
-                            if (match)
-                            {
-                                foreach (var sub in kvp.Value.Item2)
-                                {
-                                    byte* keyBytePtr = ptr;
-                                    byte* nullBytePtr = null;
-                                    sub.Value.PrefixPublish(subscribedPrefixPtr, kvp.Key.Length, ref keyBytePtr, key.Length, ref valPtr, valLength, ref nullBytePtr, sub.Key);
-                                    numSubscribers++;
-                                }
-                            }
-                        }
-                    }
-                }
             }
+
             return numSubscribers;
         }
 
@@ -136,7 +132,7 @@ namespace Garnet.server
             try
             {
                 var uniqueKeys = new Dictionary<byte[], (byte[], byte[])>(ByteArrayComparer.Instance);
-                long truncateUntilAddress = log.BeginAddress;
+                var truncateUntilAddress = log.BeginAddress;
 
                 using var iter = log.ScanSingle(log.BeginAddress, long.MaxValue, scanUncommitted: true);
                 var signal = iter.Signal;
@@ -192,8 +188,9 @@ namespace Garnet.server
                             byte[] asciiBytes = enumerator.Current.Value.Item2;
                             bool ascii = asciiBytes[0] != 0;
 
-                            fixed (byte* valPtr = valBytes)
-                                Broadcast(keyBytes, valPtr, valBytes.Length, ascii);
+                            var key = new ByteArraySpan(keyBytes);
+                            var value = new ByteArraySpan(valBytes);
+                            Broadcast(key, value, ascii);
                         }
                         uniqueKeys.Clear();
                     }
@@ -211,23 +208,21 @@ namespace Garnet.server
         /// <param name="key">Key to subscribe to</param>
         /// <param name="session">Server session</param>
         /// <returns></returns>
-        public unsafe int Subscribe(ref byte* key, ServerSessionBase session)
+        public unsafe int Subscribe(ref ArgSlice key, ServerSessionBase session)
         {
-            var start = key;
-            keySerializer.ReadKeyByRef(ref key);
             var id = Interlocked.Increment(ref sid);
             if (Interlocked.CompareExchange(ref publishQueue, new AsyncQueue<(byte[], byte[])>(), null) == null)
             {
                 done.Reset();
-                subscriptions = new ConcurrentDictionary<byte[], ConcurrentDictionary<int, ServerSessionBase>>(ByteArrayComparer.Instance);
-                prefixSubscriptions = new ConcurrentDictionary<byte[], (bool, ConcurrentDictionary<int, ServerSessionBase>)>(ByteArrayComparer.Instance);
+                subscriptions = new ConcurrentDictionary<ByteArraySpan, ConcurrentDictionary<int, ServerSessionBase>>();
+                prefixSubscriptions = new ConcurrentDictionary<ByteArraySpan, (bool, ConcurrentDictionary<int, ServerSessionBase>)>();
                 Task.Run(() => Start(cts.Token));
             }
             else
             {
                 while (prefixSubscriptions == null) Thread.Yield();
             }
-            var subscriptionKey = new Span<byte>(start, (int)(key - start)).ToArray();
+            var subscriptionKey = new ByteArraySpan(key.ToArray());
             subscriptions.TryAdd(subscriptionKey, new ConcurrentDictionary<int, ServerSessionBase>());
             if (subscriptions.TryGetValue(subscriptionKey, out var val))
                 val.TryAdd(id, session);
@@ -241,23 +236,21 @@ namespace Garnet.server
         /// <param name="session">Server session</param>
         /// <param name="ascii">is key ascii?</param>
         /// <returns></returns>
-        public unsafe int PSubscribe(ref byte* prefix, ServerSessionBase session, bool ascii = false)
+        public unsafe int PSubscribe(ref ArgSlice prefix, ServerSessionBase session, bool ascii = false)
         {
-            var start = prefix;
-            keySerializer.ReadKeyByRef(ref prefix);
             var id = Interlocked.Increment(ref sid);
             if (Interlocked.CompareExchange(ref publishQueue, new AsyncQueue<(byte[], byte[])>(), null) == null)
             {
                 done.Reset();
-                subscriptions = new ConcurrentDictionary<byte[], ConcurrentDictionary<int, ServerSessionBase>>(ByteArrayComparer.Instance);
-                prefixSubscriptions = new ConcurrentDictionary<byte[], (bool, ConcurrentDictionary<int, ServerSessionBase>)>(ByteArrayComparer.Instance);
+                subscriptions = new ConcurrentDictionary<ByteArraySpan, ConcurrentDictionary<int, ServerSessionBase>>();
+                prefixSubscriptions = new ConcurrentDictionary<ByteArraySpan, (bool, ConcurrentDictionary<int, ServerSessionBase>)>();
                 Task.Run(() => Start(cts.Token));
             }
             else
             {
                 while (prefixSubscriptions == null) Thread.Yield();
             }
-            var subscriptionPrefix = new Span<byte>(start, (int)(prefix - start)).ToArray();
+            var subscriptionPrefix = new ByteArraySpan(prefix.ToArray());
             prefixSubscriptions.TryAdd(subscriptionPrefix, (ascii, new ConcurrentDictionary<int, ServerSessionBase>()));
             if (prefixSubscriptions.TryGetValue(subscriptionPrefix, out var val))
                 val.Item2.TryAdd(id, session);
@@ -270,12 +263,11 @@ namespace Garnet.server
         /// <param name="key">Key to subscribe to</param>
         /// <param name="session">Server session</param>
         /// <returns></returns>
-        public unsafe bool Unsubscribe(byte* key, ServerSessionBase session)
+        public unsafe bool Unsubscribe(ref ArgSlice key, ServerSessionBase session)
         {
             bool ret = false;
             var start = key;
-            keySerializer.ReadKeyByRef(ref key);
-            var subscriptionKey = new Span<byte>(start, (int)(key - start)).ToArray();
+            var subscriptionKey = new ByteArraySpan(key.Span);
             if (subscriptions == null) return ret;
             if (subscriptions.TryGetValue(subscriptionKey, out var subscriptionDict))
             {
@@ -301,11 +293,10 @@ namespace Garnet.server
         /// <param name="key">Pattern to subscribe to</param>
         /// <param name="session">Server session</param>
         /// <returns></returns>
-        public unsafe void PUnsubscribe(byte* key, ServerSessionBase session)
+        public unsafe void PUnsubscribe(ref ArgSlice key, ServerSessionBase session)
         {
             var start = key;
-            keySerializer.ReadKeyByRef(ref key);
-            var subscriptionKey = new Span<byte>(start, (int)(key - start)).ToArray();
+            var subscriptionKey = new ByteArraySpan(key.Span);
             if (prefixSubscriptions == null) return;
             if (prefixSubscriptions.ContainsKey(subscriptionKey))
             {
@@ -331,9 +322,9 @@ namespace Garnet.server
         /// </summary>
         /// <param name="session"></param>
         /// <returns></returns>
-        public unsafe List<byte[]> ListAllSubscriptions(ServerSessionBase session)
+        public unsafe List<ByteArraySpan> ListAllSubscriptions(ServerSessionBase session)
         {
-            List<byte[]> sessionSubscriptions = new();
+            List<ByteArraySpan> sessionSubscriptions = [];
             if (subscriptions != null)
             {
                 foreach (var subscription in subscriptions)
@@ -350,9 +341,9 @@ namespace Garnet.server
         /// </summary>
         /// <param name="session"></param>
         /// <returns></returns>
-        public unsafe List<byte[]> ListAllPSubscriptions(ServerSessionBase session)
+        public unsafe List<ByteArraySpan> ListAllPSubscriptions(ServerSessionBase session)
         {
-            List<byte[]> sessionPSubscriptions = new();
+            List<ByteArraySpan> sessionPSubscriptions = [new()];
             foreach (var psubscription in prefixSubscriptions)
             {
                 if (psubscription.Value.Item2.Values.Contains(session))
@@ -367,16 +358,11 @@ namespace Garnet.server
         /// </summary>
         /// <param name="key">key that has been updated</param>
         /// <param name="value">value that has been updated</param>
-        /// <param name="valueLength">value length that has been updated</param>
         /// <param name="ascii">whether ascii</param>
-        public unsafe int PublishNow(byte* key, byte* value, int valueLength, bool ascii)
+        public unsafe int PublishNow(ref ArgSlice key, ref ArgSlice value, bool ascii)
         {
             if (subscriptions == null && prefixSubscriptions == null) return 0;
-
-            var start = key;
-            ref TKey k = ref keySerializer.ReadKeyByRef(ref key);
-            var keyBytes = new Span<byte>(start, (int)(key - start)).ToArray();
-            int numSubscribedSessions = Broadcast(keyBytes, value, valueLength, ascii);
+            int numSubscribedSessions = Broadcast(new ByteArraySpan(key.ReadOnlySpan), new ByteArraySpan(value.ReadOnlySpan), ascii);
             return numSubscribedSessions;
         }
 
@@ -438,7 +424,7 @@ namespace Garnet.server
 
                     foreach (var key in subscriptions.Keys)
                     {
-                        while (!RespWriteUtils.WriteBulkString(key.AsSpan().Slice(sizeof(int)), ref curr, end))
+                        while (!RespWriteUtils.WriteBulkString(key.array.AsSpan().Slice(sizeof(int)), ref curr, end))
                             ObjectUtils.ReallocateOutput(ref output, ref isMemory, ref ptr, ref ptrHandle, ref curr, ref end);
                     }
                     return;
@@ -457,13 +443,13 @@ namespace Garnet.server
 
                 foreach (var key in subscriptions.Keys)
                 {
-                    fixed (byte* keyPtr = key)
+                    var keyPtr = key.ptr;
                     {
                         var endKeyPtr = keyPtr;
                         var _patternPtr = patternPtr;
                         if (keySerializer.Match(ref keySerializer.ReadKeyByRef(ref endKeyPtr), true, ref keySerializer.ReadKeyByRef(ref _patternPtr), true))
                         {
-                            while (!RespWriteUtils.WriteSimpleString(key.AsSpan().Slice(sizeof(int)), ref curr, end))
+                            while (!RespWriteUtils.WriteSimpleString(key.array.AsSpan().Slice(sizeof(int)), ref curr, end))
                                 ObjectUtils.ReallocateOutput(ref output, ref isMemory, ref ptr, ref ptrHandle, ref curr, ref end);
                             noOfFoundChannels++;
                         }
@@ -548,7 +534,7 @@ namespace Garnet.server
                     while (!RespWriteUtils.WriteBulkString(channelArg.ReadOnlySpan, ref curr, end))
                         ObjectUtils.ReallocateOutput(ref output, ref isMemory, ref ptr, ref ptrHandle, ref curr, ref end);
 
-                    var channel = new Span<byte>(channelPtr, channelSpan.Length + sizeof(int)).ToArray();
+                    var channel = new ByteArraySpan(new Span<byte>(channelPtr, channelSpan.Length + sizeof(int)));
 
                     subscriptions.TryGetValue(channel, out var subscriptionDict);
                     while (!RespWriteUtils.WriteInteger(subscriptionDict is null ? 0 : subscriptionDict.Count, ref curr, end))
