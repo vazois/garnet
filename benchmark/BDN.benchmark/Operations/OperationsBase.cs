@@ -55,8 +55,9 @@ namespace BDN.benchmark.Operations
             {
                 QuietMode = true,
                 EnableLua = true,
-                DisablePubSub = false,
+                DisablePubSub = true,
             };
+
             if (Params.useAof)
             {
                 opts.EnableAOF = true;
@@ -85,9 +86,6 @@ namespace BDN.benchmark.Operations
                 if (aclFile != null)
                     File.Delete(aclFile);
             }
-
-            session = server.GetRespSession();
-            subscribeSession = server.GetRespSession();
         }
 
         /// <summary>
