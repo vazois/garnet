@@ -43,6 +43,7 @@ namespace BDN.benchmark.Operations
         internal const int batchSize = 100;
         internal EmbeddedRespServer server;
         internal RespServerSession session;
+        internal RespServerSession subscribeSession;
 
         /// <summary>
         /// Setup
@@ -54,7 +55,7 @@ namespace BDN.benchmark.Operations
             {
                 QuietMode = true,
                 EnableLua = true,
-                DisablePubSub = true,
+                DisablePubSub = false,
             };
             if (Params.useAof)
             {
@@ -72,7 +73,7 @@ namespace BDN.benchmark.Operations
                 if (Params.useACLs)
                 {
                     aclFile = Path.GetTempFileName();
-                    File.WriteAllText(aclFile, @"user default on nopass -@all +ping +set +get +setex +incr +decr +incrby +decrby +zadd +zrem +lpush +lpop +sadd +srem +hset +hdel +@custom");
+                    File.WriteAllText(aclFile, @"user default on nopass -@all +ping +set +get +setex +incr +decr +incrby +decrby +zadd +zrem +lpush +lpop +sadd +srem +hset +hdel +publish +subscribe +@custom");
                     opts.AuthSettings = new AclAuthenticationPasswordSettings(aclFile);
                 }
 
@@ -86,6 +87,7 @@ namespace BDN.benchmark.Operations
             }
 
             session = server.GetRespSession();
+            subscribeSession = server.GetRespSession();
         }
 
         /// <summary>
@@ -95,6 +97,7 @@ namespace BDN.benchmark.Operations
         public virtual void GlobalCleanup()
         {
             session.Dispose();
+            subscribeSession.Dispose();
             server.Dispose();
         }
 
