@@ -60,6 +60,11 @@ namespace Garnet.cluster
         public int Port;
 
         /// <summary>
+        /// Whether connection has been named
+        /// </summary>
+        bool setConnectionName = false;
+
+        /// <summary>
         /// GarnetServerNode constructor
         /// </summary>
         /// <param name="clusterProvider"></param>
@@ -213,7 +218,15 @@ namespace Garnet.cluster
             if (task == null)
             {
                 // Issue first time gossip
-                var configArray = clusterProvider.clusterManager.CurrentConfig.ToByteArray();
+                var current = clusterProvider.clusterManager.CurrentConfig;
+                var configArray = current.ToByteArray();
+
+                if (!setConnectionName)
+                {
+                    _ = gc.ExecuteForStringResultAsync("CLIENT", ["SETNAME", current.LocalNodeId]);
+                    setConnectionName = false;
+                }
+
                 gossipTask = Gossip(configArray);
                 UpdateGossipSend();
                 clusterProvider.clusterManager.gossipStats.gossip_full_send++;
