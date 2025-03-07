@@ -291,7 +291,11 @@ namespace Garnet.server
 
         private void PopulateClusterBufferPoolStats(StoreWrapper storeWrapper)
         {
-            bufferPoolStats = [new("server_socket", storeWrapper.TcpServer.GetBufferPoolStats())];
+            var server = storeWrapper.TcpServer;
+            bufferPoolStats = new MetricsItem[server.Length];
+            for (var i = 0; i < server.Length; i++)
+                bufferPoolStats[i] = new($"server_socket_{i}", server[i].GetBufferPoolStats());
+            bufferPoolStats = [new("server_socket", storeWrapper.TcpServer[0].GetBufferPoolStats())];
             if (storeWrapper.clusterProvider != null)
                 bufferPoolStats = [.. bufferPoolStats, .. storeWrapper.clusterProvider.GetBufferPoolStats()];
         }
