@@ -222,7 +222,8 @@ namespace Garnet.test.cluster
             context.CreateConnection();
 
             // Assign all slots to node 0
-            context.clusterTestUtils.AddSlotsRange(sourceIndex, [(0, 16383)], logger: context.logger);
+            var resp = context.clusterTestUtils.AddSlotsRange(sourceIndex, [(0, 16383)], logger: context.logger);
+            ClassicAssert.AreEqual("OK", resp);
             context.clusterTestUtils.SetConfigEpoch(sourceIndex, 1, logger: context.logger);
             context.clusterTestUtils.SetConfigEpoch(targetIndex, 2, logger: context.logger);
 
@@ -234,6 +235,23 @@ namespace Garnet.test.cluster
         public virtual void OneTimeTearDown()
         {
             context?.TearDown();
+        }
+
+        string ClusterState()
+        {
+            var clusterStatus = $"{GetNodeInfo(context.clusterTestUtils.ClusterNodes(sourceIndex))}\n" +
+                $"{GetNodeInfo(context.clusterTestUtils.ClusterNodes(targetIndex))}\n" +
+                $"{GetNodeInfo(context.clusterTestUtils.ClusterNodes(otherIndex))}\n";
+
+            string GetNodeInfo(ClusterConfiguration nodeConfig)
+            {
+                var output = $"[{nodeConfig.Origin.ToString()}]";
+
+                foreach (var node in nodeConfig.Nodes)
+                    output += $"\n\t{node.ToString()}";
+                return output;
+            }
+            return clusterStatus;
         }
 
         [Test, Order(1), NonParallelizable]
@@ -264,7 +282,7 @@ namespace Garnet.test.cluster
                         ClassicAssert.AreEqual("CLUSTERDOWN Hash slot not served", ex.Message, command.Command);
                         return;
                     }
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
 
                 void GarnetClientSessionClusterDown(BaseCommand command)
@@ -280,7 +298,7 @@ namespace Garnet.test.cluster
                         ClassicAssert.AreEqual("CLUSTERDOWN Hash slot not served", ex.Message, command.Command);
                         return;
                     }
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
             }
         }
@@ -308,7 +326,7 @@ namespace Garnet.test.cluster
                 catch (Exception ex)
                 {
                     context.logger?.LogError(ex, "Failed executing cleanup {command}", command.Command);
-                    Assert.Fail($"Failed executing cleanup. Command: {command.Command}");
+                    Assert.Fail($"Failed executing cleanup. Command: {command.Command} \n{ClusterState()}");
                 }
 
                 void SERedisOKTest(BaseCommand command)
@@ -320,7 +338,7 @@ namespace Garnet.test.cluster
                     catch (Exception ex)
                     {
                         if (!command.RequiresExistingKey)
-                            Assert.Fail($"{ex.Message}. Command: {command.Command}");
+                            Assert.Fail($"{ex.Message}. Command: {command.Command} \n{ClusterState()}");
                     }
                 }
 
@@ -337,7 +355,7 @@ namespace Garnet.test.cluster
                     catch (Exception ex)
                     {
                         if (!command.RequiresExistingKey)
-                            Assert.Fail($"{ex.Message}. Command: {command.Command}");
+                            Assert.Fail($"{ex.Message}. Command: {command.Command} \n{ClusterState()}");
                     }
                 }
             }
@@ -372,7 +390,7 @@ namespace Garnet.test.cluster
                         ClassicAssert.AreEqual("CROSSSLOT Keys in request do not hash to the same slot", ex.Message, command.Command);
                         return;
                     }
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
 
                 void GarnetClientSessionCrossslotTest(BaseCommand command)
@@ -389,7 +407,7 @@ namespace Garnet.test.cluster
                         ClassicAssert.AreEqual("CROSSSLOT Keys in request do not hash to the same slot", ex.Message, command.Command);
                         return;
                     }
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
             }
         }
@@ -432,7 +450,7 @@ namespace Garnet.test.cluster
                         ClassicAssert.AreEqual(command.GetSlot, _slot, command.Command);
                         return;
                     }
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
 
                 void GarnetClientSessionMOVEDTest(BaseCommand command)
@@ -447,7 +465,7 @@ namespace Garnet.test.cluster
                         ClassicAssert.AreEqual($"MOVED {command.GetSlot} {address}:{port}", ex.Message, command.Command);
                         return;
                     }
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
             }
         }
@@ -484,7 +502,7 @@ namespace Garnet.test.cluster
                     catch (Exception ex)
                     {
                         context.logger?.LogError(ex, "Failed executing cleanup {command}", command.Command);
-                        Assert.Fail($"Failed executing cleanup. Command: {command.Command}");
+                        Assert.Fail($"Failed executing cleanup. Command: {command.Command} \n{ClusterState()}");
                     }
                 }
 
@@ -508,7 +526,7 @@ namespace Garnet.test.cluster
                         ClassicAssert.AreEqual(command.GetSlot, _slot, command.Command);
                         return;
                     }
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
 
                 void GarnetClientSessionASKTest(BaseCommand command)
@@ -523,7 +541,7 @@ namespace Garnet.test.cluster
                         ClassicAssert.AreEqual($"ASK {command.GetSlot} {address}:{port}", ex.Message, command.Command);
                         return;
                     }
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
             }
         }
@@ -556,7 +574,7 @@ namespace Garnet.test.cluster
                         catch (Exception ex)
                         {
                             context.logger?.LogError(ex, "Failed executing setup {command}", command.Command);
-                            Assert.Fail($"Failed executing setup. Command: {command.Command}");
+                            Assert.Fail($"Failed executing setup. Command: {command.Command} \n{ClusterState()}");
                         }
                     }
 
@@ -567,7 +585,7 @@ namespace Garnet.test.cluster
                     }
                     catch (Exception ex)
                     {
-                        ClassicAssert.AreEqual("TRYAGAIN Multiple keys request during rehashing of slot", ex.Message, command.Command);
+                        ClassicAssert.AreEqual("TRYAGAIN Multiple keys request during rehashing of slot", ex.Message, command.Command, $"\n{ClusterState()}");
                         return;
                     }
                     finally
@@ -580,11 +598,11 @@ namespace Garnet.test.cluster
                         catch (Exception ex)
                         {
                             context.logger?.LogError(ex, "Failed executing cleanup {command}", command.Command);
-                            Assert.Fail($"Failed executing cleanup. Command: {command.Command}");
+                            Assert.Fail($"Failed executing cleanup. Command: {command.Command} \n{ClusterState()}");
                         }
                     }
 
-                    Assert.Fail($"Should not reach here. Command: {command.Command}");
+                    Assert.Fail($"Should not reach here. Command: {command.Command} \n{ClusterState()}");
                 }
             }
         }
