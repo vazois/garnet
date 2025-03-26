@@ -10,6 +10,62 @@ namespace Garnet.server
 {
     public unsafe partial class BitmapManager
     {
+        static readonly byte[] countmap = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8];
+
+        private static long ScalarPopCnt(byte* bitmap, long startByteOffset, long endByteOffset)
+        {
+            var accCount = 4;
+            var accumulators = stackalloc long[accCount];
+            var len = endByteOffset - startByteOffset + 1;
+            var batchBytes = BatchBytes(accCount, 8);
+            var remainder = len & (batchBytes - 1);
+            var curr = bitmap + startByteOffset;
+            var end = curr + len - remainder;
+
+            #region acc4x64
+            if (len >= batchBytes)
+            {
+                Debug.Assert((end - curr) % batchBytes == 0);
+                while (curr < end)
+                {
+                    accumulators[0] += BitOperations.PopCount(*(ulong*)curr);
+                    accumulators[1] += BitOperations.PopCount(*(ulong*)curr + 8);
+                    accumulators[2] += BitOperations.PopCount(*(ulong*)curr + 16);
+                    accumulators[3] += BitOperations.PopCount(*(ulong*)curr + 24);
+                    curr += batchBytes;
+                }
+            }
+            #endregion
+
+            #region acc1x64
+            len = remainder;
+            batchBytes = BatchBytes(1, 8);
+            remainder = len & (batchBytes - 1);
+            end = curr + len - remainder;
+            if (len >= batchBytes)
+            {
+                Debug.Assert((end - curr) % batchBytes == 0);
+                while (curr < end)
+                {
+                    accumulators[0] += BitOperations.PopCount(*(ulong*)curr);
+                    curr += batchBytes;
+                }
+            }
+            #endregion
+
+            if (remainder >= 1) accumulators[0] += countmap[*curr++];
+            if (remainder >= 2) accumulators[0] += countmap[*curr++];
+            if (remainder >= 3) accumulators[0] += countmap[*curr++];
+            if (remainder >= 4) accumulators[0] += countmap[*curr++];
+            if (remainder >= 5) accumulators[0] += countmap[*curr++];
+            if (remainder >= 6) accumulators[0] += countmap[*curr++];
+            if (remainder >= 7) accumulators[0] += countmap[*curr++];
+
+            static int BatchBytes(int accumulators, int radixLength) => accumulators * radixLength;
+
+            return accumulators[0] + accumulators[1] + accumulators[2] + accumulators[3];
+        }
+
         /// <summary>
         /// Count bits within a byte given start and end offsets.
         /// </summary>
