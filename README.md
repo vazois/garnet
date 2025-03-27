@@ -62,7 +62,7 @@ processing concerns from storage details such as concurrency, storage tiering, a
 ### Cluster Mode
 
 In addition to single-node execution, Garnet supports a cluster mode, which allows users to create and manage a sharded and replicated deployment. Garnet also supports an efficient and dynamic key migration scheme 
-to rebalance shards. Users can use standard Redis cluster commands to create and manage Garnet clusters, and nodes perform gossip to share and evolve cluster state. Cluster is still work in progress.
+to rebalance shards. Users can use standard Redis cluster commands to create and manage Garnet clusters, and nodes perform gossip to share and evolve cluster state.
 
 ## Next Steps
 
