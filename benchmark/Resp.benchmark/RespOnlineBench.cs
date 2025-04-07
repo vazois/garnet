@@ -14,7 +14,6 @@ using HdrHistogram;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-
 namespace Resp.benchmark
 {
     /// <summary>
@@ -33,7 +32,7 @@ namespace Resp.benchmark
         static bool IsValidRange(long value)
             => value < HISTOGRAM_UPPER_BOUND && value > HISTOGRAM_LOWER_BOUND;
 
-        readonly EndPoint endpoint;
+        readonly EndPoint[] endpoints;
         readonly int NumThreads;
         readonly OpType op;
         readonly Options opts;
@@ -70,7 +69,11 @@ namespace Resp.benchmark
         {
             this.runDuration = runDuration;
             this.resetInterval = resetInterval;
-            this.endpoint = new IPEndPoint(IPAddress.Parse(opts.Address), opts.Port);
+
+            if (!Format.TryParseAddressList(opts.Address, opts.Port, out var endpoints, out var error))
+                throw new Exception(error);
+            this.endpoints = endpoints;
+
             this.op = opts.Op;
             this.opts = opts;
             this.auth = opts.Auth;
@@ -153,9 +156,10 @@ namespace Resp.benchmark
         {
             if (opts.Client == ClientType.GarnetClientSession && opts.Pool)
             {
+                var i = 0;
                 gcsPool = new AsyncPool<GarnetClientSession>(opts.NumThreads.First(), () =>
                 {
-                    var c = new GarnetClientSession(endpoint, new(), tlsOptions: opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
+                    var c = new GarnetClientSession(endpoints[i++ % endpoints.Length], new(), tlsOptions: opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
                     c.Connect();
                     if (auth != null)
                     {
@@ -169,9 +173,10 @@ namespace Resp.benchmark
             {
                 if (opts.Pool)
                 {
+                    var i = 0;
                     gdbPool = new AsyncPool<GarnetClient>(opts.NumThreads.First(), () =>
                     {
-                        var gdb = new GarnetClient(endpoint, opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null, recordLatency: opts.ClientHistogram);
+                        var gdb = new GarnetClient(endpoints[i++ % endpoints.Length], opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null, recordLatency: opts.ClientHistogram);
                         gdb.Connect();
                         if (auth != null)
                         {
@@ -182,7 +187,7 @@ namespace Resp.benchmark
                 }
                 else
                 {
-                    garnetClient = new GarnetClient(endpoint, opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null, recordLatency: opts.ClientHistogram);
+                    garnetClient = new GarnetClient(endpoints[0], opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null, recordLatency: opts.ClientHistogram);
                     garnetClient.Connect();
                     if (auth != null)
                     {
@@ -425,7 +430,7 @@ namespace Resp.benchmark
 
             var onResponseDelegate = new LightClient.OnResponseDelegateUnsafe(ReqGen.OnResponse);
 
-            var client = new LightClient(endpoint, (int)op, onResponseDelegate, size, opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
+            var client = new LightClient(endpoints[thread_id % endpoints.Length], (int)op, onResponseDelegate, size, opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
             client.Connect();
             client.Authenticate(auth);
 
@@ -569,7 +574,7 @@ namespace Resp.benchmark
             if (!opts.Pool)
             {
                 client = new GarnetClientSession(
-                    endpoint,
+                    endpoints[thread_id % endpoints.Length],
                     new(Math.Max(bufferSizeValue, opts.ValueLength * opts.IntraThreadParallelism)),
                     tlsOptions: opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
                 client.Connect();
@@ -668,7 +673,7 @@ namespace Resp.benchmark
             if (!opts.Pool)
             {
                 client = new GarnetClientSession(
-                    endpoint,
+                    endpoints[thread_id % endpoints.Length],
                     new NetworkBufferSettings(Math.Max(131072, opts.IntraThreadParallelism * opts.ValueLength)),
                     tlsOptions: opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
                 client.Connect();

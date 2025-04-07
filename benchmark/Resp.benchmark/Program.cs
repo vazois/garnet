@@ -196,7 +196,10 @@ namespace Resp.benchmark
 
         static void WaitForServer(Options opts)
         {
-            using var client = new GarnetClientSession(new IPEndPoint(IPAddress.Parse(opts.Address), opts.Port), new(), tlsOptions: opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
+
+            if (!Format.TryParseAddressList(opts.Address, opts.Port, out var endpoints, out var error))
+                throw new Exception(error);
+            using var client = new GarnetClientSession(endpoints[0], new(), tlsOptions: opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
             while (true)
             {
                 try

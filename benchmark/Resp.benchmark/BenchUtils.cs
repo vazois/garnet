@@ -1,8 +1,10 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Security;
 using System.Text;
 using Garnet.common;
@@ -71,13 +73,18 @@ namespace Resp.benchmark
 
         public static ConfigurationOptions GetConfig(string address, int port = default, bool allowAdmin = false, bool useTLS = false, string tlsHost = null)
         {
+            if (!Format.TryParseAddressList(address, port, out var endpoints, out var error))
+                throw new Exception(error);
+
             var commands = RespCommandsInfo.TryGetRespCommandNames(out var cmds)
                 ? new HashSet<string>(cmds)
                 : new HashSet<string>();
 
+            EndPointCollection endpointCollection = [.. endpoints.ToList()];
+
             var configOptions = new ConfigurationOptions
             {
-                EndPoints = { { address, port }, },
+                EndPoints = endpointCollection,
                 CommandMap = CommandMap.Create(commands),
                 ConnectTimeout = 100_000,
                 SyncTimeout = 100_000,
