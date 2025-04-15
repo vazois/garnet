@@ -590,25 +590,42 @@ namespace Resp.benchmark
                     if (cts.IsCancellationRequested) break;
                     var rand = r.Next(100);
                     var op = SelectOpType(rand);
+                    string[] request = op switch
+                    {
+                        OpType.PING => ["PING"],
+                        OpType.GET => ["GET", req.GenerateKey()],
+                        OpType.SET => ["SET", req.GenerateKey(), req.GenerateValue()],
+                        OpType.SETEX => ["SETEX", req.GenerateKey(), opts.Ttl.ToString(), req.GenerateValue()],
+                        OpType.DEL => ["DEL", req.GenerateKey()],
+                        OpType.SETBIT => ["SETBIT", req.GenerateKey(), req.GenerateBitOffset()],
+                        OpType.GETBIT => ["GETBIT", req.GenerateKey(), req.GenerateBitOffset()],
+                        OpType.PUBLISH => ["PUBLISH", req.GenerateKey(), req.GenerateValue()],
+                        OpType.SPUBLISH => ["SPUBLISH", req.GenerateKey(), req.GenerateValue()],
+                        OpType.READWRITETX => ["READWRITETX", req.GenerateKey(), req.GenerateKey(), req.GenerateKey(), "1000"],
+                        OpType.SAMPLEUPDATETX => ["SAMPLEUPDATETX", req.GenerateKeyRandom(), req.GenerateValue(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectEntryScore(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectEntryScore()],
+                        OpType.SAMPLEDELETETX => ["SAMPLEDELETETX", req.GenerateKeyRandom(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry()],
+                        _ => null
+                    };
+
                     var startTimestamp = Stopwatch.GetTimestamp();
                     var c = opts.Pool ? await gcsPool.GetAsync() : client;
                     _ = op switch
                     {
-                        OpType.PING => await c.ExecuteAsync(["PING"]),
-                        OpType.GET => await c.ExecuteAsync(["GET", req.GenerateKey()]),
-                        OpType.SET => await c.ExecuteAsync(["SET", req.GenerateKey(), req.GenerateValue()]),
-                        OpType.SETEX => await c.ExecuteAsync(["SETEX", req.GenerateKey(), opts.Ttl.ToString(), req.GenerateValue()]),
-                        OpType.DEL => await c.ExecuteAsync(["DEL", req.GenerateKey()]),
-                        OpType.SETBIT => await c.ExecuteAsync(["SETBIT", req.GenerateKey(), req.GenerateBitOffset()]),
-                        OpType.GETBIT => await c.ExecuteAsync(["GETBIT", req.GenerateKey(), req.GenerateBitOffset()]),
-                        OpType.PUBLISH => await c.ExecuteAsync(["PUBLISH", req.GenerateKey(), req.GenerateValue()]),
-                        OpType.SPUBLISH => await c.ExecuteAsync(["SPUBLISH", req.GenerateKey(), req.GenerateValue()]),
+                        OpType.PING => await c.ExecuteAsync(request),
+                        OpType.GET => await c.ExecuteAsync(request),
+                        OpType.SET => await c.ExecuteAsync(request),
+                        OpType.SETEX => await c.ExecuteAsync(request),
+                        OpType.DEL => await c.ExecuteAsync(request),
+                        OpType.SETBIT => await c.ExecuteAsync(request),
+                        OpType.GETBIT => await c.ExecuteAsync(request),
+                        OpType.PUBLISH => await c.ExecuteAsync(request),
+                        OpType.SPUBLISH => await c.ExecuteAsync(request),
                         OpType.ZADD => await ZADD(),
                         OpType.ZREM => await ZREM(),
                         OpType.ZCARD => await ZCARD(),
-                        OpType.READWRITETX => await c.ExecuteAsync("READWRITETX", req.GenerateKey(), req.GenerateKey(), req.GenerateKey(), "1000"),
-                        OpType.SAMPLEUPDATETX => await c.ExecuteAsync("SAMPLEUPDATETX", req.GenerateKeyRandom(), req.GenerateValue(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectEntryScore(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectEntryScore()),
-                        OpType.SAMPLEDELETETX => await c.ExecuteAsync("SAMPLEDELETETX", req.GenerateKeyRandom(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry()),
+                        OpType.READWRITETX => await c.ExecuteAsync(request),
+                        OpType.SAMPLEUPDATETX => await c.ExecuteAsync(request),
+                        OpType.SAMPLEDELETETX => await c.ExecuteAsync(request),
                         _ => throw new Exception($"opType: {op} benchmark not supported with {opts.Client} ClientType!")
                     };
 
@@ -689,36 +706,53 @@ namespace Resp.benchmark
                 var rand = r.Next(100);
                 var op = SelectOpType(rand);
                 var c = opts.Pool ? await gcsPool.GetAsync() : client;
+                string[] request = op switch
+                {
+                    OpType.PING => ["PING"],
+                    OpType.GET => ["GET", req.GenerateKey()],
+                    OpType.SET => ["SET", req.GenerateKey(), req.GenerateValue()],
+                    OpType.SETEX => ["SETEX", req.GenerateKey(), opts.Ttl.ToString(), req.GenerateValue()],
+                    OpType.DEL => ["DEL", req.GenerateKey()],
+                    OpType.SETBIT => ["SETBIT", req.GenerateKey(), req.GenerateBitOffset()],
+                    OpType.GETBIT => ["GETBIT", req.GenerateKey(), req.GenerateBitOffset()],
+                    OpType.PUBLISH => ["PUBLISH", req.GenerateKey(), req.GenerateValue()],
+                    OpType.SPUBLISH => ["SPUBLISH", req.GenerateKey(), req.GenerateValue()],
+                    OpType.READWRITETX => ["READWRITETX", req.GenerateKey(), req.GenerateKey(), req.GenerateKey(), "1000"],
+                    OpType.SAMPLEUPDATETX => ["SAMPLEUPDATETX", req.GenerateKeyRandom(), req.GenerateValue(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectEntryScore(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectEntryScore()],
+                    OpType.SAMPLEDELETETX => ["SAMPLEDELETETX", req.GenerateKeyRandom(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry(), req.GenerateObjectKeyRandom(), req.GenerateObjectEntry()],
+                    _ => null
+                };
+
                 var startTimestamp = Stopwatch.GetTimestamp();
 
                 switch (op)
                 {
                     case OpType.PING:
-                        c.ExecuteBatch(["PING"]);
+                        c.ExecuteBatch(request);
                         break;
                     case OpType.GET:
-                        c.ExecuteBatch(["GET", req.GenerateKey()]);
+                        c.ExecuteBatch(request);
                         break;
                     case OpType.SET:
-                        c.ExecuteBatch(["SET", req.GenerateKey(), req.GenerateValue()]);
+                        c.ExecuteBatch(request);
                         break;
                     case OpType.SETEX:
-                        c.ExecuteBatch(["SETEX", req.GenerateKey(), opts.Ttl.ToString(), req.GenerateValue()]);
+                        c.ExecuteBatch(request);
                         break;
                     case OpType.DEL:
-                        c.ExecuteBatch(["DEL", req.GenerateKey()]);
+                        c.ExecuteBatch(request);
                         break;
                     case OpType.SETBIT:
-                        c.ExecuteBatch(["SETBIT", req.GenerateKey(), req.GenerateBitOffset()]);
+                        c.ExecuteBatch(request);
                         break;
                     case OpType.GETBIT:
-                        c.ExecuteBatch(["GETBIT", req.GenerateKey(), req.GenerateBitOffset()]);
+                        c.ExecuteBatch(request);
                         break;
                     case OpType.PUBLISH:
-                        c.ExecuteBatch(["PUBLISH", req.GenerateKey(), req.GenerateValue()]);
+                        c.ExecuteBatch(request);
                         break;
                     case OpType.SPUBLISH:
-                        c.ExecuteBatch(["SPUBLISH", req.GenerateKey(), req.GenerateValue()]);
+                        c.ExecuteBatch(request);
                         break;
 
                     default:
