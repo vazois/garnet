@@ -182,7 +182,9 @@ namespace Resp.benchmark
             }
 
             if (opts.Client == ClientType.SERedis)
+            {
                 redis = ConnectionMultiplexer.Connect(BenchUtils.GetConfig(opts.Address, opts.Port, useTLS: opts.EnableTLS, tlsHost: opts.TlsHost));
+            }
 
             PrintBenchMarkSummary(opts);
 

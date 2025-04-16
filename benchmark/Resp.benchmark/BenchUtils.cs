@@ -3,6 +3,8 @@
 
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Net;
 using System.Net.Security;
 using System.Text;
 using Garnet.common;
@@ -75,9 +77,10 @@ namespace Resp.benchmark
                 ? new HashSet<string>(cmds)
                 : new HashSet<string>();
 
+            var endpoints = new EndPointCollection(address.Split(',').Select(address => new IPEndPoint(IPAddress.Parse(address), port)).ToArray());
             var configOptions = new ConfigurationOptions
             {
-                EndPoints = { { address, port }, },
+                EndPoints = endpoints,
                 CommandMap = CommandMap.Create(commands),
                 ConnectTimeout = 100_000,
                 SyncTimeout = 100_000,

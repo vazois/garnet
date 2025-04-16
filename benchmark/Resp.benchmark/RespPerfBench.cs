@@ -25,6 +25,7 @@ namespace Resp.benchmark
         readonly ManualResetEventSlim waiter = new();
         readonly Options opts;
         readonly IConnectionMultiplexer redis;
+        readonly EndPoint[] endpoints;
 
         KeyValuePair<RedisKey, RedisValue>[] database;
 
@@ -37,6 +38,7 @@ namespace Resp.benchmark
 
         public RespPerfBench(Options opts, int Start, IConnectionMultiplexer redis)
         {
+            this.endpoints = opts.Address.Split(',').Select(address => new IPEndPoint(IPAddress.Parse(address), opts.Port)).ToArray();
             this.opts = opts;
             this.Start = Start;
             if (opts.Client == ClientType.SERedis)
@@ -87,7 +89,7 @@ namespace Resp.benchmark
             {
                 var req = Encoding.ASCII.GetBytes("*1\r\n$6\r\nDBSIZE\r\n");
                 var lighClientOnResponseDelegate = new LightClient.OnResponseDelegateUnsafe(ReqGen.OnResponse);
-                using LightClient client = new(new IPEndPoint(IPAddress.Parse(opts.Address), opts.Port), (int)OpType.DBSIZE, lighClientOnResponseDelegate, 128, opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
+                using LightClient client = new(endpoints[0], (int)OpType.DBSIZE, lighClientOnResponseDelegate, 128, opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
 
                 client.Connect();
                 client.Authenticate(opts.Auth);
@@ -329,8 +331,8 @@ namespace Resp.benchmark
                 workers[idx] = opts.Client switch
                 {
 
-                    ClientType.LightClient => new Thread(() => LightOperateThreadRunner(OpsPerThread, opType, rg)),
-                    ClientType.GarnetClientSession => new Thread(() => GarnetClientSessionOperateThreadRunner(OpsPerThread, opType, rg)),
+                    ClientType.LightClient => new Thread(() => LightOperateThreadRunner(x, OpsPerThread, opType, rg)),
+                    ClientType.GarnetClientSession => new Thread(() => GarnetClientSessionOperateThreadRunner(x, OpsPerThread, opType, rg)),
                     ClientType.SERedis => new Thread(() => SERedisOperateThreadRunner(OpsPerThread, opType, rg)),
                     _ => throw new Exception($"ClientType {opts.Client} not supported"),
                 };
@@ -371,10 +373,10 @@ namespace Resp.benchmark
             return rg;
         }
 
-        private unsafe void LightOperateThreadRunner(int NumOps, OpType opType, ReqGen rg)
+        private unsafe void LightOperateThreadRunner(int thread_id, int NumOps, OpType opType, ReqGen rg)
         {
             var lighClientOnResponseDelegate = new LightClient.OnResponseDelegateUnsafe(ReqGen.OnResponse);
-            using ClientBase client = new LightClient(new IPEndPoint(IPAddress.Parse(opts.Address), opts.Port), (int)opType, lighClientOnResponseDelegate, rg.GetBufferSize(), opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
+            using ClientBase client = new LightClient(endpoints[thread_id % endpoints.Length], (int)opType, lighClientOnResponseDelegate, rg.GetBufferSize(), opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
 
             client.Connect();
             client.Authenticate(opts.Auth);
@@ -399,7 +401,7 @@ namespace Resp.benchmark
             Interlocked.Add(ref total_ops_done, numReqs * rg.BatchCount);
         }
 
-        private void GarnetClientSessionOperateThreadRunner(int NumOps, OpType opType, ReqGen rg)
+        private void GarnetClientSessionOperateThreadRunner(int thread_id, int NumOps, OpType opType, ReqGen rg)
         {
             switch (opType)
             {
@@ -408,7 +410,7 @@ namespace Resp.benchmark
                 default:
                     throw new Exception($"opType: {opType} benchmark not supported with GarnetClientSession!");
             }
-            var c = new GarnetClientSession(new IPEndPoint(IPAddress.Parse(opts.Address), opts.Port), new(), tlsOptions: opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
+            var c = new GarnetClientSession(endpoints[thread_id % endpoints.Length], new(), tlsOptions: opts.EnableTLS ? BenchUtils.GetTlsOptions(opts.TlsHost, opts.CertFileName, opts.CertPassword) : null);
             c.Connect();
             if (opts.Auth != null)
             {
