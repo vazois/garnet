@@ -210,8 +210,9 @@ namespace Garnet.cluster
         /// <param name="key"></param>
         /// <param name="slot"></param>
         /// <param name="readOnly"></param>
+        /// <param name="session"></param>
         /// <returns>True if we can operate on the key, otherwise false (i.e. key is being migrated)</returns>
-        public bool CanAccessKey(ref ArgSlice key, int slot, bool readOnly)
+        public bool CanAccessKey(ref ArgSlice key, int slot, bool readOnly, ref IClusterSession session)
         {
             try
             {
@@ -225,7 +226,7 @@ namespace Garnet.cluster
 
                 Debug.Assert(s != null);
                 // Check owner of slot if can operate on key
-                if (!s.CanAccessKey(ref key, slot, readOnly))
+                if (!s.CanAccessKey(ref key, slot, readOnly, ref session))
                     return false;
             }
             finally

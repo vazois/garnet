@@ -57,9 +57,10 @@ namespace Garnet.cluster
         /// <param name="key"></param>
         /// <param name="slot"></param>
         /// <param name="readOnly"></param>
+        /// <param name="session"></param>
         /// <returns></returns>
         /// <exception cref="GarnetException"></exception>
-        public bool CanAccessKey(ref ArgSlice key, int slot, bool readOnly)
+        public bool CanAccessKey(ref ArgSlice key, int slot, bool readOnly, ref IClusterSession session)
         {
             // Skip operation check since this session is not responsible for migrating the associated slot
             if (!_sslots.Contains(slot))
@@ -68,6 +69,9 @@ namespace Garnet.cluster
             // If key is not queued for migration then
             if (!_keys.TryGetValue(ref key, out var state))
                 return true;
+
+            // Refresh epoch since this session has observed the change for that slot
+            session.RefreshCurrentEpoch();
 
             // NOTE:
             // Caller responsible for spin-wait

@@ -140,8 +140,9 @@ namespace Garnet.cluster
         /// <param name="slot"></param>
         /// <param name="key"></param>
         /// <param name="readOnly"></param>
+        /// <param name="session"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool CanAccessKey(ref ArgSlice key, int slot, bool readOnly)
-            => migrationTaskStore.CanAccessKey(ref key, slot, readOnly);
+        public bool CanAccessKey(ref ArgSlice key, int slot, bool readOnly, ref IClusterSession session)
+            => migrationTaskStore.CanAccessKey(ref key, slot, readOnly, ref session);
     }
 }

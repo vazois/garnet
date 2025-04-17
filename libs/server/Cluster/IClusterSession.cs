@@ -48,6 +48,11 @@ namespace Garnet.server
         void ReleaseCurrentEpoch();
 
         /// <summary>
+        /// RefreshEpoch
+        /// </summary>
+        void RefreshCurrentEpoch();
+
+        /// <summary>
         /// Process cluster commands
         /// </summary>
         unsafe void ProcessClusterCommands(RespCommand command, ref SessionParseState parseState, ref byte* dcurr, ref byte* dend);

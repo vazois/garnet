@@ -172,8 +172,10 @@ namespace Garnet.cluster
         {
             this.userHandle = userHandle;
         }
+
         public void AcquireCurrentEpoch() => _localCurrentEpoch = clusterProvider.GarnetCurrentEpoch;
         public void ReleaseCurrentEpoch() => _localCurrentEpoch = 0;
+        public void RefreshCurrentEpoch() => _localCurrentEpoch = clusterProvider.GarnetCurrentEpoch;
 
         /// <summary>
         /// Release epoch, wait for config transition and re-acquire the epoch
