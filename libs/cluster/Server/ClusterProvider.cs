@@ -47,6 +47,8 @@ namespace Garnet.cluster
         /// </summary>
         public string ClusterPassword => authContainer.ClusterPassword;
 
+        readonly ILogger logger;
+
         /// <summary>
         /// Create new cluster provider
         /// </summary>
@@ -55,6 +57,7 @@ namespace Garnet.cluster
             this.storeWrapper = storeWrapper;
             this.serverOptions = storeWrapper.serverOptions;
             this.loggerFactory = storeWrapper.loggerFactory;
+            this.logger = loggerFactory?.CreateLogger("ClusterProvider");
 
             authContainer = new ClusterAuthContainer
             {
@@ -454,7 +457,10 @@ namespace Garnet.cluster
                         var entryEpoch = s.LocalCurrentEpoch;
                         // Retry if at least one session has not yet caught up to the current epoch.
                         if (entryEpoch != 0 && entryEpoch < currentEpoch)
+                        {
+                            logger.LogTrace("{entryEpoch} < {currentEpoch}", entryEpoch, currentEpoch);
                             goto retry;
+                        }
                     }
                     break;
                 }

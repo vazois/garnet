@@ -66,6 +66,9 @@ namespace Garnet.cluster
             if (!_sslots.Contains(slot))
                 return true;
 
+            // Refresh epoch since this session has observed the change for that slot
+            session.RefreshCurrentEpoch();
+
             // If key is not queued for migration then
             if (!_keys.TryGetValue(ref key, out var state))
                 return true;

@@ -32,12 +32,14 @@ namespace Garnet.cluster
                         break;
 
                     // Safely migrate keys to target node
+                    logger?.LogTrace("Start processing batch");
                     if (!MigrateKeys())
                     {
                         logger?.LogError("IOERR Migrate keys failed.");
                         Status = MigrateState.FAIL;
                         return false;
                     }
+                    logger?.LogTrace("Complete processing batch");
 
                     mainStoreGetKeysInSlots.AdvanceIterator();
                     ClearKeys();

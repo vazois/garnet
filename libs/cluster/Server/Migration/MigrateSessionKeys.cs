@@ -28,6 +28,7 @@ namespace Garnet.cluster
 
             try
             {
+                logger?.LogTrace("Start processing main store key batch");
                 // Transition keys to MIGRATING status
                 TryTransitionState(KeyMigrationStatus.MIGRATING);
                 WaitForConfigPropagation();
@@ -84,6 +85,7 @@ namespace Garnet.cluster
                 if (o.Memory != default)
                     o.Memory.Dispose();
                 buffer.Dispose();
+                logger?.LogTrace("Complete processing main store key batch");
             }
             return true;
         }
@@ -97,6 +99,7 @@ namespace Garnet.cluster
         {
             try
             {
+                logger?.LogTrace("Start processing object store key batch");
                 // NOTE: Any keys not found in main store are automatically set to QUEUED before this method is called
                 // Transition all QUEUED to MIGRATING state
                 TryTransitionState(KeyMigrationStatus.MIGRATING);
@@ -136,6 +139,7 @@ namespace Garnet.cluster
             {
                 // Delete keys if COPY option is false or transition KEYS from MIGRATING to MIGRATED status
                 DeleteKeys();
+                logger?.LogTrace("Complete processing main store key batch");
             }
             return true;
         }
