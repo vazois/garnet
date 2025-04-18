@@ -141,6 +141,9 @@ namespace Garnet.cluster
                 // Wait for main sync task to complete
                 await replicaSyncSession.WaitForSyncCompletion();
 
+                if (isLeader)
+                    logger?.LogInformation("Sync completed for {count} secondaries", replicaCount);
+
                 // If session faulted return early
                 if (replicaSyncSession.Failed)
                 {
@@ -158,7 +161,7 @@ namespace Garnet.cluster
             {
                 replicaSyncSession.Dispose();
                 if (isLeader)
-                    logger?.LogInformation("Completed replication sync for {count} secondaries", replicaCount);
+                    logger?.LogInformation("Attach completed for {count} secondaries", replicaCount);
             }
         }
 
@@ -281,7 +284,6 @@ namespace Garnet.cluster
                     throw new NotImplementedException();
                 }
             }
-
 
             // Stream Diskless
             async Task TakeStreamingCheckpoint()
