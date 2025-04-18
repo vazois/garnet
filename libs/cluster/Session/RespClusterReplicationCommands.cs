@@ -3,6 +3,7 @@
 
 using System;
 using System.Text;
+using System.Threading.Tasks;
 using Garnet.common;
 using Garnet.server;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,13 @@ using Tsavorite.core;
 
 namespace Garnet.cluster
 {
+    using BasicGarnetApi = GarnetApi<BasicContext<SpanByte, SpanByte, RawStringInput, SpanByteAndMemory, long, MainSessionFunctions,
+        /* MainStoreFunctions */ StoreFunctions<SpanByte, SpanByte, SpanByteComparer, SpanByteRecordDisposer>,
+        SpanByteAllocator<StoreFunctions<SpanByte, SpanByte, SpanByteComparer, SpanByteRecordDisposer>>>,
+    BasicContext<byte[], IGarnetObject, ObjectInput, GarnetObjectStoreOutput, long, ObjectSessionFunctions,
+        /* ObjectStoreFunctions */ StoreFunctions<byte[], IGarnetObject, ByteArrayKeyComparer, DefaultRecordDisposer<byte[], IGarnetObject>>,
+        GenericAllocator<byte[], IGarnetObject, StoreFunctions<byte[], IGarnetObject, ByteArrayKeyComparer, DefaultRecordDisposer<byte[], IGarnetObject>>>>>;
+
     internal sealed unsafe partial class ClusterSession : IClusterSession
     {
         /// <summary>
@@ -433,7 +441,7 @@ namespace Garnet.cluster
         /// </summary>
         /// <param name="invalidParameters"></param>
         /// <returns></returns>
-        private bool NetworkClusterSync(out bool invalidParameters)
+        private bool NetworkClusterSync2(out bool invalidParameters)
         {
             invalidParameters = false;
 
@@ -480,6 +488,79 @@ namespace Garnet.cluster
                     value.Expiration = expiration;
                     _ = basicGarnetApi.SET(key, value);
                     i++;
+                }
+            }
+
+            while (!RespWriteUtils.TryWriteDirect(CmdStrings.RESP_OK, ref dcurr, dend))
+                SendAndReset();
+
+            return true;
+        }
+
+        /// <summary>
+        /// Implements CLUSTER SYNC
+        /// </summary>
+        /// <param name="invalidParameters"></param>
+        /// <returns></returns>
+        private bool NetworkClusterSync(out bool invalidParameters)
+        {
+            invalidParameters = false;
+
+            // Expecting exactly 3 arguments
+            if (parseState.Count != 3)
+            {
+                invalidParameters = true;
+                return true;
+            }
+
+            var primaryNodeId2 = parseState.GetString(0);
+            var storeTypeSpan2 = parseState.GetArgSliceByRef(1).ReadOnlySpan;
+            var payload2 = parseState.GetArgSliceByRef(2).SpanByte;
+            var payloadPtr2 = payload2.ToPointer();
+            var lastParam2 = parseState.GetArgSliceByRef(parseState.Count - 1).SpanByte;
+            var payloadEndPtr2 = lastParam2.ToPointer() + lastParam2.Length;
+
+            var storeTypeStr = Encoding.ASCII.GetString(storeTypeSpan2);
+            var buffer = new Span<byte>(payloadPtr2, (int)(payloadEndPtr2 - payloadPtr2)).ToArray();
+            Task.Run(() => Process(basicGarnetApi, buffer, storeTypeStr));
+
+            void Process(BasicGarnetApi basicGarnetApi, byte[] input, string storeTypeSpan)
+            {
+                fixed (byte* ptr = input)
+                {
+                    var payloadPtr = ptr;
+                    var payloadEndPtr = ptr + input.Length;
+                    var keyValuePairCount = *(int*)payloadPtr;
+                    var i = 0;
+                    payloadPtr += 4;
+                    if (storeTypeSpan.Equals("SSTORE"))
+                    {
+                        TrackImportProgress(keyValuePairCount, isMainStore: true, keyValuePairCount == 0);
+                        while (i < keyValuePairCount)
+                        {
+                            ref var key = ref SpanByte.Reinterpret(payloadPtr);
+                            payloadPtr += key.TotalSize;
+                            ref var value = ref SpanByte.Reinterpret(payloadPtr);
+                            payloadPtr += value.TotalSize;
+
+                            _ = basicGarnetApi.SET(ref key, ref value);
+                            i++;
+                        }
+                    }
+                    else if (storeTypeSpan.Equals("OSTORE"))
+                    {
+                        TrackImportProgress(keyValuePairCount, isMainStore: false, keyValuePairCount == 0);
+                        while (i < keyValuePairCount)
+                        {
+                            if (!RespReadUtils.TryReadSerializedData(out var key, out var data, out var expiration, ref payloadPtr, payloadEndPtr))
+                                return;
+
+                            var value = clusterProvider.storeWrapper.GarnetObjectSerializer.Deserialize(data);
+                            value.Expiration = expiration;
+                            _ = basicGarnetApi.SET(key, value);
+                            i++;
+                        }
+                    }
                 }
             }
 
