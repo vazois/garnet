@@ -108,20 +108,24 @@ namespace Garnet.cluster
         public async Task<SyncStatusInfo> ReplicationSyncDriver(ReplicaSyncSession replicaSyncSession)
         {
             var disklessRepl = ClusterProvider.serverOptions.ReplicaDisklessSync;
-
+            int replicaCount = 0;
+            bool isLeader = false;
             try
             {
                 // Give opportunity to other replicas to attach for streaming sync
                 if (ClusterProvider.serverOptions.ReplicaDisklessSyncDelay > 0)
                     Thread.Sleep(TimeSpan.FromSeconds(ClusterProvider.serverOptions.ReplicaDisklessSyncDelay));
 
+
                 // Started syncing
                 replicaSyncSession.SetStatus(SyncStatus.INPROGRESS);
 
                 // Only one thread should be the leader who initiates the sync driver
-                var isLeader = GetSessionStore.IsFirst(replicaSyncSession);
+                isLeader = GetSessionStore.IsFirst(replicaSyncSession);
                 if (isLeader)
                 {
+                    replicaCount = GetSessionStore.GetNumSessions();
+                    logger?.LogInformation("Starting replication sync for {count} secondaries", replicaCount);
                     if (disklessRepl)
                     {
                         // Launch a background task to sync the attached replicas using streaming snapshot
@@ -153,6 +157,8 @@ namespace Garnet.cluster
             finally
             {
                 replicaSyncSession.Dispose();
+                if (isLeader)
+                    logger?.LogInformation("Completed replication sync for {count} secondaries", replicaCount);
             }
         }
 
