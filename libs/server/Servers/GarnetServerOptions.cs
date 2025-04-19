@@ -224,7 +224,7 @@ namespace Garnet.server
         /// <summary>
         /// Frequency (in seconds) of logging (used for tracking progress of long running operations e.g. migration)
         /// </summary>
-        public int LoggingFrequency = TimeSpan.FromSeconds(60).Seconds;
+        public int LoggingFrequency = 60;
 
         /// <summary>
         /// Metrics sampling frequency
