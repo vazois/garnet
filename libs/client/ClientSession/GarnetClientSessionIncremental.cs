@@ -45,13 +45,13 @@ namespace Garnet.client
         /// Flush and initialize buffers/parameters used for migrate command
         /// </summary>
         /// <param name="iterationProgressFreq"></param>
-        public void InitializeIterationBuffer(TimeSpan iterationProgressFreq = default)
+        public void InitializeIterationBuffer(TimeSpan iterationProgressFreq)
         {
             Flush();
             currTcsIterationTask = null;
             curr = head = null;
             keyValuePairCount = 0;
-            this.iterationProgressFreq = default ? TimeSpan.FromSeconds(5) : iterationProgressFreq;
+            this.iterationProgressFreq = iterationProgressFreq;
         }
 
         /// <summary>

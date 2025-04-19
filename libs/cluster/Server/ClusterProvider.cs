@@ -458,7 +458,7 @@ namespace Garnet.cluster
                         // Retry if at least one session has not yet caught up to the current epoch.
                         if (entryEpoch != 0 && entryEpoch < currentEpoch)
                         {
-                            logger.LogTrace("{entryEpoch} < {currentEpoch}", entryEpoch, currentEpoch);
+                            //logger.LogTrace("{entryEpoch} < {currentEpoch}", entryEpoch, currentEpoch);
                             goto retry;
                         }
                     }
