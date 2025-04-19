@@ -5,7 +5,9 @@ using System.Net;
 using System.Runtime.CompilerServices;
 using Garnet.client;
 using Garnet.common;
+using Garnet.server;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace MigrateBench
 {
@@ -59,8 +61,40 @@ namespace MigrateBench
 
             sourceNode = new(new IPEndPoint(IPAddress.Parse(sourceAddress), sourcePort), new NetworkBufferSettings(1 << 22), logger: logger);
             targetNode = new(new IPEndPoint(IPAddress.Parse(targetAddress), targetPort), new NetworkBufferSettings(1 << 22), logger: logger);
+
+            var redis = ConnectionMultiplexer.Connect(GetConfig(sourceAddress, sourcePort, allowAdmin: true));
             this.timeout = (int)TimeSpan.FromSeconds(opts.Timeout).TotalMilliseconds;
             this.logger = logger;
+        }
+
+        public static ConfigurationOptions GetConfig(string address, int port = default, bool allowAdmin = false, bool useTLS = false, string tlsHost = null)
+        {
+            var commands = RespCommandsInfo.TryGetRespCommandNames(out var cmds)
+                ? new HashSet<string>(cmds)
+                : [];
+
+            var endpoints = new EndPointCollection(address.Split(',').Select(address => new IPEndPoint(IPAddress.Parse(address), port)).ToArray());
+            var configOptions = new ConfigurationOptions
+            {
+                EndPoints = endpoints,
+                CommandMap = CommandMap.Create(commands),
+                ConnectTimeout = 100_000,
+                SyncTimeout = 100_000,
+                AllowAdmin = allowAdmin,
+                Ssl = useTLS,
+                SslHost = tlsHost,
+            };
+
+            if (useTLS)
+            {
+                configOptions.CertificateValidation += (sender, cert, chain, errors) =>
+                {
+                    Debug.WriteLine("Certificate validation errors: " + errors);
+                    return true;
+                };
+            }
+
+            return configOptions;
         }
 
         public void Run()
@@ -74,17 +108,32 @@ namespace MigrateBench
                 sourceNodeId = MeasureElapsed(Stopwatch.GetTimestamp(), sourceNode.ExecuteAsync(["CLUSTER", "MYID"]).GetAwaiter(), "CLUSTER_MYID", ref myIdElapsed, opts.Verbose, logger);
                 targetNodeId = MeasureElapsed(Stopwatch.GetTimestamp(), targetNode.ExecuteAsync(["CLUSTER", "MYID"]).GetAwaiter(), "CLUSTER_MYID", ref myIdElapsed, opts.Verbose, logger);
 
-                var endpoint = MeasureElapsed(Stopwatch.GetTimestamp(), sourceNode.ExecuteAsync(["CLUSTER", "ENDPOINT", sourceNodeId]).GetAwaiter(), "CLUSTER_ENDPOINT", ref myIdElapsed, opts.Verbose, logger);
-                if (!IPEndPoint.TryParse(endpoint, out sourceNodeEndpoint))
+                var success = true;
+                try
                 {
-                    logger?.LogError("ERR Source Endpoint ({endpoint}) is not valid!", endpoint);
-                    return;
+                    var endpoint = MeasureElapsed(Stopwatch.GetTimestamp(), sourceNode.ExecuteAsync(["CLUSTER", "ENDPOINT", sourceNodeId]).GetAwaiter(), "CLUSTER_ENDPOINT", ref myIdElapsed, opts.Verbose, logger);
+                    if (!IPEndPoint.TryParse(endpoint, out sourceNodeEndpoint))
+                    {
+                        logger?.LogError("ERR Source Endpoint ({endpoint}) is not valid!", endpoint);
+                        return;
+                    }
+                    endpoint = MeasureElapsed(Stopwatch.GetTimestamp(), targetNode.ExecuteAsync(["CLUSTER", "ENDPOINT", targetNodeId]).GetAwaiter(), "CLUSTER_ENDPOINT", ref myIdElapsed, opts.Verbose, logger);
+                    if (!IPEndPoint.TryParse(endpoint, out targetNodeEndpoint))
+                    {
+                        logger?.LogError("ERR Target Endpoint ({endpoint}) is not valid!", endpoint);
+                        return;
+                    }
                 }
-                endpoint = MeasureElapsed(Stopwatch.GetTimestamp(), targetNode.ExecuteAsync(["CLUSTER", "ENDPOINT", targetNodeId]).GetAwaiter(), "CLUSTER_ENDPOINT", ref myIdElapsed, opts.Verbose, logger);
-                if (!IPEndPoint.TryParse(endpoint, out targetNodeEndpoint))
+                catch (Exception ex)
                 {
-                    logger?.LogError("ERR Target Endpoint ({endpoint}) is not valid!", endpoint);
-                    return;
+                    logger?.LogError("{msg}", ex);
+                    success = false;
+                }
+
+                if (!success)
+                {
+                    sourceNodeEndpoint = new IPEndPoint(IPAddress.Parse(sourceAddress), sourcePort);
+                    targetNodeEndpoint = new IPEndPoint(IPAddress.Parse(targetAddress), targetPort);
                 }
 
                 var sourceNodeKeys = dbsize(ref sourceNode);
