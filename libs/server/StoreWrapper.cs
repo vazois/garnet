@@ -181,7 +181,7 @@ namespace Garnet.server
             this.sessionLogger = loggerFactory?.CreateLogger("Session");
             this.accessControlList = accessControlList;
             this.GarnetObjectSerializer = new GarnetObjectSerializer(this.customCommandManager);
-            this.loggingFrequency = TimeSpan.FromSeconds(serverOptions.LoggingFrequency);
+            this.loggingFrequency = TimeSpan.FromSeconds(60);
 
             if (serverOptions.SlowLogThreshold > 0)
                 this.slowLogContainer = new SlowLogContainer(serverOptions.SlowLogMaxEntries);
