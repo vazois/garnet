@@ -215,8 +215,7 @@ namespace Garnet.cluster
                     // Copy key to buffer and add it to migrate session dictionary
                     key.CopyTo(keySlice.Span);
                     if (!session.AddKey(ref keySlice))
-                        throw new GarnetException("Failed to add migrating key to working set!");
-
+                        return false;
 
                     // Move buffer ptr and key offset
                     currPtr += keySlice.Length;

@@ -93,5 +93,7 @@ namespace Garnet.server
         /// <param name="argSlice"></param>
         /// <returns></returns>
         public readonly bool Equals(ArgSlice argSlice) => argSlice.Span.SequenceEqual(Span);
+
+        public readonly bool EqualsObject(ArgSlice argSlice) => argSlice.ptr == ptr;
     }
 }

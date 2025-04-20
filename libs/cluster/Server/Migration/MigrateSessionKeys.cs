@@ -28,7 +28,7 @@ namespace Garnet.cluster
 
             try
             {
-                logger?.LogTrace("Start processing main store key batch");
+                logger?.LogTrace("Start processing main store key batch {count}", _keys.KeyCount);
                 // Transition keys to MIGRATING status
                 TryTransitionState(KeyMigrationStatus.MIGRATING);
                 WaitForConfigPropagation();
@@ -99,7 +99,7 @@ namespace Garnet.cluster
         {
             try
             {
-                logger?.LogTrace("Start processing object store key batch");
+                logger?.LogTrace("Start processing object store key batch {count}", _keys.KeyCount);
                 // NOTE: Any keys not found in main store are automatically set to QUEUED before this method is called
                 // Transition all QUEUED to MIGRATING state
                 TryTransitionState(KeyMigrationStatus.MIGRATING);
