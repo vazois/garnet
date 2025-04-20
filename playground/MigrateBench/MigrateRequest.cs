@@ -203,9 +203,9 @@ namespace MigrateBench
                     resp = sourceNode.ExecuteAsync("CLUSTER", "MTASKS").GetAwaiter().GetResult();
                 }
 
-                var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
-                var t = TimeSpan.FromTicks(elapsed);
-                logger?.LogInformation("SLOTSRANGE Elapsed Time: {elapsed} seconds", t.TotalSeconds);
+                var duration = Stopwatch.GetTimestamp() - startTimestamp;
+                var elapsedSeconds = duration / (double)Stopwatch.Frequency;
+                logger?.LogInformation("SLOTSRANGE Elapsed Time: {elapsed} seconds", elapsedSeconds);
             }
             catch (Exception ex)
             {
@@ -237,9 +237,9 @@ namespace MigrateBench
                     resp = sourceNode.ExecuteAsync("CLUSTER", "MTASKS").GetAwaiter().GetResult();
                 }
 
-                var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
-                var t = TimeSpan.FromTicks(elapsed);
-                logger?.LogInformation("SLOTS Elapsed Time: {elapsed} seconds", t.TotalSeconds);
+                var duration = Stopwatch.GetTimestamp() - startTimestamp;
+                var elapsedSeconds = duration / (double)Stopwatch.Frequency;
+                logger?.LogInformation("SLOTSRANGE Elapsed Time: {elapsed} seconds", elapsedSeconds);
             }
             catch (Exception ex)
             {
@@ -302,13 +302,12 @@ namespace MigrateBench
                     resp = MeasureElapsed(Stopwatch.GetTimestamp(), sourceNode.ExecuteAsync(node).GetAwaiter(), "NODE_SOURCE", ref setSlotElapsed, opts.Verbose, logger);
                 }
 
-                var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
-                var t = TimeSpan.FromTicks(elapsed);
-                logger?.LogInformation("KEYS Elapsed Time: {elapsed} seconds", t.TotalSeconds);
-                logger?.LogInformation("SetSlot Elapsed Time: {elapsed} seconds", TimeSpan.FromTicks(setSlotElapsed).TotalSeconds);
-                logger?.LogInformation("CountKeys Elapsed Time: {elapsed} seconds", TimeSpan.FromTicks(countKeysElapsed).TotalSeconds);
-                logger?.LogInformation("GetKeys Elapsed Time: {elapsed} seconds", TimeSpan.FromTicks(getKeysElapsed).TotalSeconds);
-                logger?.LogInformation("MigrateKeys Elapsed Time: {elapsed} seconds", TimeSpan.FromTicks(migrateKeysElapsed).TotalSeconds);
+                var duration = Stopwatch.GetTimestamp() - startTimestamp;
+                logger?.LogInformation("KEYS Elapsed Time: {elapsed} seconds", duration / (double)Stopwatch.Frequency);
+                logger?.LogInformation("SetSlot Elapsed Time: {elapsed} seconds", setSlotElapsed / (double)Stopwatch.Frequency);
+                logger?.LogInformation("CountKeys Elapsed Time: {elapsed} seconds", countKeysElapsed / (double)Stopwatch.Frequency);
+                logger?.LogInformation("GetKeys Elapsed Time: {elapsed} seconds", getKeysElapsed / (double)Stopwatch.Frequency);
+                logger?.LogInformation("MigrateKeys Elapsed Time: {elapsed} seconds", migrateKeysElapsed / (double)Stopwatch.Frequency);
             }
             catch (Exception ex)
             {
