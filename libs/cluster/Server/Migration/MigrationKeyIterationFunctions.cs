@@ -14,6 +14,49 @@ namespace Garnet.cluster
     {
         internal sealed class MigrationKeyIterationFunctions
         {
+            internal sealed unsafe class MainStoreSendKeysInSlots : IScanIteratorFunctions<SpanByte, SpanByte>
+            {
+                MigrateSession session;
+                readonly HashSet<int> slots;
+
+                internal MainStoreSendKeysInSlots(MigrateSession session, HashSet<int> slots, int bufferSize = 1 << 17)
+                {
+                    this.session = session;
+                    this.slots = slots;
+                    session._gcs.InitializeIterationBuffer(TimeSpan.FromSeconds(60));
+                }
+
+                internal void Dispose() { }
+
+                public bool SingleReader(ref SpanByte key, ref SpanByte value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
+                {
+                    cursorRecordResult = CursorRecordResult.Accept; // default; not used here
+
+                    // Do not send key if it is expired
+                    if (ClusterSession.Expired(ref value))
+                        return true;
+
+                    var s = HashSlotUtils.HashSlot(ref key);
+                    // Transfer key if it belongs to slot that is currently being migrated
+                    if (slots.Contains(s))
+                        session.WriteOrSendMainStoreKeyValuePair(ref key, ref value);
+
+                    return true;
+                }
+
+                public bool ConcurrentReader(ref SpanByte key, ref SpanByte value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
+                    => SingleReader(ref key, ref value, recordMetadata, numberOfRecords, out cursorRecordResult);
+                public bool OnStart(long beginAddress, long endAddress) => true;
+                public void OnStop(bool completed, long numberOfRecords)
+                {
+                    if (!session.HandleMigrateTaskResponse(session._gcs.SendAndResetIterationBuffer()))
+                        return;
+
+                    session._keys.ClearKeys();
+                }
+                public void OnException(Exception exception, long numberOfRecords) { }
+            }
+
             internal sealed unsafe class MainStoreGetKeysInSlots : IScanIteratorFunctions<SpanByte, SpanByte>
             {
                 MigrationScanIterator iterator;

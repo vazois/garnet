@@ -184,7 +184,11 @@ namespace Garnet.cluster
 
             var storeTypeStr = Encoding.ASCII.GetString(storeType);
             var buffer = new Span<byte>(payloadStartPtr, (int)(payloadEndPtr - payloadStartPtr)).ToArray();
-            Task.Run(() => Process(basicGarnetApi, buffer, storeTypeStr, replaceOption));
+
+            if (clusterProvider.serverOptions.FastMigrate)
+                Task.Run(() => Process(basicGarnetApi, buffer, storeTypeStr, replaceOption));
+            else
+                Process(basicGarnetApi, buffer, storeTypeStr, replaceOption);
 
             void Process(BasicGarnetApi basicGarnetApi, byte[] input, string storeTypeSpan, bool replaceOption)
             {
