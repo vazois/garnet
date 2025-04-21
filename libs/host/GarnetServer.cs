@@ -186,7 +186,6 @@ namespace Garnet
                 opts.EnableCluster ? "cluster" : "standalone",
                 string.Join(',', opts.EndPoints.Select(endpoint => endpoint.ToString())));
             logger?.LogInformation("Environment .NET {netVersion}; {osPlatform}; {processArch}", Environment.Version, Environment.OSVersion.Platform, RuntimeInformation.ProcessArchitecture);
-
             // Flush initialization logs from memory logger
             FlushMemoryLogger(this.initLogger, "ArgParser", this.loggerFactory);
 

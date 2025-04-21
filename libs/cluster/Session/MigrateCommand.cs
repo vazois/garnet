@@ -300,9 +300,10 @@ namespace Garnet.cluster
             #region scheduleMigration
 
 
-            var workers = 8;
+            var workers = clusterProvider.serverOptions.ParallelMigrateTasks;
             if (transferOption == TransferOption.SLOTS && slots.Count > workers * 16)
             {
+                logger?.LogInformation("Running {transferOption} using {workers} parallel migrate sessions", transferOption, workers);
                 var slotGroups = new HashSet<int>[workers];
 
                 var total = slots.Count;
@@ -312,8 +313,11 @@ namespace Garnet.cluster
                     slotGroups[i] = [.. slots.Skip(i * chunkSize).Take(chunkSize)];
 
                 for (var i = 0; i < workers; i++)
+                {
                     if (!CreateMigrateSession(slotGroups[i], writeOk: i == workers - 1))
                         break;
+                    logger?.LogInformation("MigrateSession[{i}] => {slotCount} slots", i, slotGroups[i].Count);
+                }
             }
             else
             {

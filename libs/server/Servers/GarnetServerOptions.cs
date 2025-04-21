@@ -68,6 +68,11 @@ namespace Garnet.server
         public bool CleanClusterConfig = false;
 
         /// <summary>
+        /// Number of parallel migrate tasks to spawn when SLOTS or SLOTSRANGE option is used.
+        /// </summary>
+        public int ParallelMigrateTasks = 4;
+
+        /// <summary>
         /// Authentication settings
         /// </summary>
         public IAuthenticationSettings AuthSettings = null;
