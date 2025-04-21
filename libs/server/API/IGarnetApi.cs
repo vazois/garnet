@@ -1945,8 +1945,9 @@ namespace Garnet.server
         /// <typeparam name="TScanFunctions"></typeparam>
         /// <param name="scanFunctions"></param>
         /// <param name="untilAddress"></param>
+        /// <param name="cursor"></param>
         /// <returns></returns>
-        public bool IterateMainStore<TScanFunctions>(ref TScanFunctions scanFunctions, long untilAddress = -1)
+        public bool IterateMainStore<TScanFunctions>(ref TScanFunctions scanFunctions, ref long cursor, long untilAddress = -1)
             where TScanFunctions : IScanIteratorFunctions<SpanByte, SpanByte>;
 
         /// <summary>
@@ -1961,8 +1962,9 @@ namespace Garnet.server
         /// <typeparam name="TScanFunctions"></typeparam>
         /// <param name="scanFunctions"></param>
         /// <param name="untilAddress"></param>
+        /// <param name="cursor"></param>
         /// <returns></returns>
-        public bool IterateObjectStore<TScanFunctions>(ref TScanFunctions scanFunctions, long untilAddress = -1)
+        public bool IterateObjectStore<TScanFunctions>(ref TScanFunctions scanFunctions, ref long cursor, long untilAddress = -1)
             where TScanFunctions : IScanIteratorFunctions<byte[], IGarnetObject>;
 
         /// <summary>

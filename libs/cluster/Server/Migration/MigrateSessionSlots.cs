@@ -15,18 +15,21 @@ namespace Garnet.cluster
         /// <returns></returns>
         public bool MigrateSlotsDriver()
         {
-            logger?.LogTrace("Initializing MainStore Iterator");
+            logger?.LogTrace("Initializing [MainStore] Iterator");
             var storeTailAddress = clusterProvider.storeWrapper.store.Log.TailAddress;
             var bufferSize = 1 << clusterProvider.serverOptions.PageSizeBits();
             MigrationKeyIterationFunctions.MainStoreGetKeysInSlots mainStoreGetKeysInSlots = new(this, _sslots, bufferSize: bufferSize);
 
             try
             {
-                logger?.LogTrace("Begin MainStore Iteration");
+                logger?.LogTrace("Initiating [MainStore] scan");
+                var mainStoreCursor = 0L;
                 while (true)
                 {
                     // Iterate main store
-                    _ = localServerSession.BasicGarnetApi.IterateMainStore(ref mainStoreGetKeysInSlots, storeTailAddress);
+                    logger?.LogTrace("Start [MainStore] scan from {cursor}", mainStoreCursor);
+                    _ = localServerSession.BasicGarnetApi.IterateMainStore(ref mainStoreGetKeysInSlots, ref mainStoreCursor, storeTailAddress);
+                    logger?.LogTrace("Scanned [MainStore] {cursor}", mainStoreCursor);
 
                     // If did not acquire any keys stop scanning
                     if (_keys.IsNullOrEmpty())
@@ -57,18 +60,21 @@ namespace Garnet.cluster
 
             if (!clusterProvider.serverOptions.DisableObjects)
             {
-                logger?.LogTrace("Initializing ObjectStore Iterator");
+                logger?.LogTrace("Initializing [ObjectStore] Iterator");
                 var objectStoreTailAddress = clusterProvider.storeWrapper.objectStore.Log.TailAddress;
                 var objectBufferSize = 1 << clusterProvider.serverOptions.ObjectStorePageSizeBits();
                 MigrationKeyIterationFunctions.ObjectStoreGetKeysInSlots objectStoreGetKeysInSlots = new(this, _sslots, bufferSize: objectBufferSize);
+                var objectStoreCursor = 0L;
 
                 try
                 {
-                    logger?.LogTrace("Begin ObjectStore Iteration");
+                    logger?.LogTrace("Initiating [ObjectStore] scan");
                     while (true)
                     {
                         // Iterate object store
-                        _ = localServerSession.BasicGarnetApi.IterateObjectStore(ref objectStoreGetKeysInSlots, objectStoreTailAddress);
+                        logger?.LogTrace("Start [ObjectStore] scan from {cursor}", objectStoreCursor);
+                        _ = localServerSession.BasicGarnetApi.IterateObjectStore(ref objectStoreGetKeysInSlots, ref objectStoreCursor, objectStoreTailAddress);
+                        logger?.LogTrace("Scanned [ObjectStore] until {cursor}", objectStoreCursor);
 
                         // If did not acquire any keys stop scanning
                         if (_keys.IsNullOrEmpty())

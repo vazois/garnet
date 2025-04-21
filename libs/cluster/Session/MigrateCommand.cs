@@ -299,7 +299,6 @@ namespace Garnet.cluster
 
             #region scheduleMigration
 
-
             var workers = clusterProvider.serverOptions.ParallelMigrateTasks;
             if (transferOption == TransferOption.SLOTS && slots.Count > workers * 16)
             {

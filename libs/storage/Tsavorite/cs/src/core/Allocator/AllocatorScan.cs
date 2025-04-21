@@ -250,7 +250,7 @@ namespace Tsavorite.core
                 bContext.CompletePending(wait: true);
 
             IterationComplete:
-            cursor = 0;
+            // cursor = 0; // TODO: is this valid?
             scanFunctions.OnStop(false, scanCursorState.acceptedCount);
             return false;
         }
