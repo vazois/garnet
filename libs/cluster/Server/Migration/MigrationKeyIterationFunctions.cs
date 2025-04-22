@@ -16,17 +16,16 @@ namespace Garnet.cluster
         {
             internal sealed unsafe class MainStoreSendKeysInSlots : IScanIteratorFunctions<SpanByte, SpanByte>
             {
-                MigrateSession session;
+                readonly MigrateSession session;
                 readonly HashSet<int> slots;
+                public long keyCount;
 
-                internal MainStoreSendKeysInSlots(MigrateSession session, HashSet<int> slots, int bufferSize = 1 << 17)
+                internal MainStoreSendKeysInSlots(MigrateSession session, HashSet<int> slots)
                 {
                     this.session = session;
                     this.slots = slots;
                     session._gcs.InitializeIterationBuffer(TimeSpan.FromSeconds(60));
                 }
-
-                internal void Dispose() { }
 
                 public bool SingleReader(ref SpanByte key, ref SpanByte value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
                 {
@@ -39,7 +38,10 @@ namespace Garnet.cluster
                     var s = HashSlotUtils.HashSlot(ref key);
                     // Transfer key if it belongs to slot that is currently being migrated
                     if (slots.Contains(s))
+                    {
+                        keyCount++;
                         session.WriteOrSendMainStoreKeyValuePair(ref key, ref value);
+                    }
 
                     return true;
                 }
