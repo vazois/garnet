@@ -15,22 +15,23 @@ namespace Garnet.cluster
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
+        /// <param name="taskId"></param>
         /// <returns>True on success, else false</returns>
-        private bool WriteOrSendMainStoreKeyValuePair(ref SpanByte key, ref SpanByte value)
+        private bool WriteOrSendMainStoreKeyValuePair(ref SpanByte key, ref SpanByte value, int taskId = 0)
         {
             // Check if we need to initialize cluster migrate command arguments
-            if (_gcs.NeedsInitialization)
-                _gcs.SetClusterMigrateHeader(_sourceNodeId, _replaceOption, isMainStore: true);
+            if (_gcs[taskId].NeedsInitialization)
+                _gcs[taskId].SetClusterMigrateHeader(_sourceNodeId, _replaceOption, isMainStore: true);
 
             // Try write serialized key value to client buffer
-            while (!_gcs.TryWriteKeyValueSpanByte(ref key, ref value, out var task))
+            while (!_gcs[taskId].TryWriteKeyValueSpanByte(ref key, ref value, out var task))
             {
                 // Flush key value pairs in the buffer
                 if (!HandleMigrateTaskResponse(task))
                     return false;
 
                 // re-initialize cluster migrate command parameters
-                _gcs.SetClusterMigrateHeader(_sourceNodeId, _replaceOption, isMainStore: true);
+                _gcs[taskId].SetClusterMigrateHeader(_sourceNodeId, _replaceOption, isMainStore: true);
             }
             return true;
         }
@@ -41,19 +42,20 @@ namespace Garnet.cluster
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <param name="expiration"></param>
+        /// <param name="taskId"></param>
         /// <returns></returns>
-        private bool WriteOrSendObjectStoreKeyValuePair(byte[] key, byte[] value, long expiration)
+        private bool WriteOrSendObjectStoreKeyValuePair(byte[] key, byte[] value, long expiration, int taskId = 0)
         {
             // Check if we need to initialize cluster migrate command arguments
-            if (_gcs.NeedsInitialization)
-                _gcs.SetClusterMigrateHeader(_sourceNodeId, _replaceOption, isMainStore: false);
+            if (_gcs[taskId].NeedsInitialization)
+                _gcs[taskId].SetClusterMigrateHeader(_sourceNodeId, _replaceOption, isMainStore: false);
 
-            while (!_gcs.TryWriteKeyValueByteArray(key, value, expiration, out var task))
+            while (!_gcs[taskId].TryWriteKeyValueByteArray(key, value, expiration, out var task))
             {
                 // Flush key value pairs in the buffer
                 if (!HandleMigrateTaskResponse(task))
                     return false;
-                _gcs.SetClusterMigrateHeader(_sourceNodeId, _replaceOption, isMainStore: false);
+                _gcs[taskId].SetClusterMigrateHeader(_sourceNodeId, _replaceOption, isMainStore: false);
             }
             return true;
         }

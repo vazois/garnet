@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Garnet.common;
 using Garnet.server;
@@ -298,75 +297,40 @@ namespace Garnet.cluster
             logger?.LogDebug("MIGRATE COPY:{copyOption} REPLACE:{replaceOption} OpType:{opType}", copyOption, replaceOption, (keys != null ? "KEYS" : "SLOTS"));
 
             #region scheduleMigration
-
-            var workers = clusterProvider.serverOptions.ParallelMigrateTasks;
-            if (transferOption == TransferOption.SLOTS && slots.Count > workers * 16)
+            if (!clusterProvider.migrationManager.TryAddMigrationTask(
+                this,
+                sourceNodeId,
+                targetAddress,
+                targetPort,
+                targetNodeId,
+                username,
+                passwd,
+                copyOption,
+                replaceOption,
+                timeout,
+                slots,
+                keys,
+                transferOption,
+                out var mSession))
             {
-                logger?.LogInformation("Running {transferOption} using {workers} parallel migrate sessions", transferOption, workers);
-                var slotGroups = new HashSet<int>[workers];
-
-                var total = slots.Count;
-                var chunkSize = (int)Math.Ceiling(total / (double)workers);
-
-                for (var i = 0; i < workers; i++)
-                    slotGroups[i] = [.. slots.Skip(i * chunkSize).Take(chunkSize)];
-
-                for (var i = 0; i < workers; i++)
-                {
-                    if (!CreateMigrateSession(slotGroups[i], writeOk: i == workers - 1))
-                        break;
-                    logger?.LogInformation("MigrateSession[{i}] => {slotCount} slots", i, slotGroups[i].Count);
-                }
+                // Migration task could not be added due to possible conflicting migration tasks
+                while (!RespWriteUtils.TryWriteError(CmdStrings.RESP_ERR_IOERR, ref dcurr, dend))
+                    SendAndReset();
             }
             else
             {
-                _ = CreateMigrateSession(slots, writeOk: true);
-            }
-
-            bool CreateMigrateSession(HashSet<int> slots, bool writeOk)
-            {
-                if (!clusterProvider.migrationManager.TryAddMigrationTask(
-                    this,
-                    sourceNodeId,
-                    targetAddress,
-                    targetPort,
-                    targetNodeId,
-                    username,
-                    passwd,
-                    copyOption,
-                    replaceOption,
-                    timeout,
-                    slots,
-                    keys,
-                    transferOption,
-                    out var mSession))
+                //Start migration task
+                if (!mSession.TryStartMigrationTask(out var errorMessage))
                 {
-                    // Migration task could not be added due to possible conflicting migration tasks
-                    while (!RespWriteUtils.TryWriteError(CmdStrings.RESP_ERR_IOERR, ref dcurr, dend))
+                    while (!RespWriteUtils.TryWriteError(errorMessage, ref dcurr, dend))
                         SendAndReset();
-                    return false;
                 }
                 else
                 {
-                    //Start migration task
-                    if (!mSession.TryStartMigrationTask(out var errorMessage))
-                    {
-                        while (!RespWriteUtils.TryWriteError(errorMessage, ref dcurr, dend))
-                            SendAndReset();
-                        return false;
-                    }
-                    else
-                    {
-                        if (writeOk)
-                        {
-                            while (!RespWriteUtils.TryWriteDirect(CmdStrings.RESP_OK, ref dcurr, dend))
-                                SendAndReset();
-                        }
-                        return true;
-                    }
+                    while (!RespWriteUtils.TryWriteDirect(CmdStrings.RESP_OK, ref dcurr, dend))
+                        SendAndReset();
                 }
             }
-
 
             return true;
             #endregion

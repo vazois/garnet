@@ -54,6 +54,12 @@ namespace Garnet.cluster
             var configResumed = true;
             try
             {
+                if (!ConnectAll())
+                {
+                    logger?.LogError("Error establishing connection");
+                    return;
+                }
+
                 // Set target node to import state
                 if (!TrySetSlotRanges(GetSourceNodeId, MigrateState.IMPORT))
                 {

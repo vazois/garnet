@@ -26,7 +26,7 @@ namespace Garnet.cluster
 
         readonly ClusterSession clusterSession;
         readonly ClusterProvider clusterProvider;
-        readonly LocalServerSession localServerSession;
+        readonly LocalServerSession[] localServerSession;
 
         /// <summary>
         /// Get/Set migration status
@@ -80,7 +80,7 @@ namespace Garnet.cluster
         /// </summary>
         public LimitedFixedBufferPool GetNetworkPool => clusterProvider.migrationManager.GetNetworkPool;
 
-        readonly GarnetClientSession _gcs;
+        readonly GarnetClientSession[] _gcs;
 
         /// <summary>
         /// Check for overlapping slots between migrate sessions
@@ -145,19 +145,23 @@ namespace Garnet.cluster
             this._keys = keys ?? new MigratingKeysWorkingSet();
             this.transferOption = transferOption;
 
-            if (clusterProvider != null)
-                localServerSession = new LocalServerSession(clusterProvider.storeWrapper);
+            localServerSession = new LocalServerSession[clusterProvider.serverOptions.ParallelMigrateTasks];
+            for (var i = 0; i < localServerSession.Length; i++)
+                localServerSession[i] = new LocalServerSession(clusterProvider.storeWrapper);
             Status = MigrateState.PENDING;
 
             // Single key value size + few bytes for command header and arguments
-            _gcs = new(
-                new IPEndPoint(IPAddress.Parse(_targetAddress), _targetPort),
-                networkBufferSettings: GetNetworkBufferSettings,
-                networkPool: GetNetworkPool,
-                clusterProvider?.serverOptions.TlsOptions?.TlsClientOptions,
-                authUsername: _username,
-                authPassword: _passwd,
-                logger: logger);
+
+            _gcs = new GarnetClientSession[clusterProvider.serverOptions.ParallelMigrateTasks];
+            for (var i = 0; i < _gcs.Length; i++)
+                _gcs[i] = new GarnetClientSession(
+                    new IPEndPoint(IPAddress.Parse(_targetAddress), _targetPort),
+                    networkBufferSettings: GetNetworkBufferSettings,
+                    networkPool: GetNetworkPool,
+                    clusterProvider?.serverOptions.TlsOptions?.TlsClientOptions,
+                    authUsername: _username,
+                    authPassword: _passwd,
+                    logger: logger);
         }
 
         /// <summary>
@@ -168,21 +172,35 @@ namespace Garnet.cluster
             if (!_disposed.TryWriteLock()) return;
             _cts?.Cancel();
             _cts?.Dispose();
-            _gcs.Dispose();
-            localServerSession?.Dispose();
+            foreach (var gcs in _gcs)
+                gcs.Dispose();
+            foreach (var session in localServerSession)
+                session?.Dispose();
         }
 
-        private bool CheckConnection()
+        /// <summary>
+        /// Establish connections for background migrate data transfer
+        /// </summary>
+        /// <returns></returns>
+        public bool ConnectAll()
         {
-            bool status = true;
-            if (!_gcs.IsConnected)
+            for (var i = 0; i < _gcs.Length; i++)
+                if (!CheckConnection(i))
+                    return false;
+            return true;
+        }
+
+        private bool CheckConnection(int taskId = 0)
+        {
+            var status = true;
+            if (!_gcs[taskId].IsConnected)
             {
-                _gcs.Reconnect((int)_timeout.TotalMilliseconds);
+                _gcs[taskId].Reconnect((int)_timeout.TotalMilliseconds);
                 if (_passwd != null)
                 {
                     try
                     {
-                        status = _gcs.Authenticate(_username, _passwd).ContinueWith(resp =>
+                        status = _gcs[taskId].Authenticate(_username, _passwd).ContinueWith(resp =>
                         {
                             // Check if authenticate succeeded
                             if (!resp.Result.Equals("OK", StringComparison.Ordinal))
@@ -236,13 +254,14 @@ namespace Garnet.cluster
         /// </summary>
         /// <param name="nodeid"></param>
         /// <param name="state"></param>
+        /// <param name="taskId"></param>
         /// <returns></returns>
-        public bool TrySetSlotRanges(string nodeid, MigrateState state)
+        public bool TrySetSlotRanges(string nodeid, MigrateState state, int taskId = 0)
         {
             var status = false;
             try
             {
-                if (!CheckConnection())
+                if (!CheckConnection(taskId: taskId))
                     return false;
                 var stateBytes = state switch
                 {
@@ -252,7 +271,7 @@ namespace Garnet.cluster
                     _ => throw new Exception("Invalid SETSLOT Operation"),
                 };
 
-                status = _gcs.SetSlotRange(stateBytes, nodeid, _slotRanges).ContinueWith(resp =>
+                status = _gcs[taskId].SetSlotRange(stateBytes, nodeid, _slotRanges).ContinueWith(resp =>
                 {
                     // Check if setslotsrange executed correctly
                     if (!resp.Result.Equals("OK", StringComparison.Ordinal))

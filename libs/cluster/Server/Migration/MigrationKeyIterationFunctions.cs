@@ -14,17 +14,55 @@ namespace Garnet.cluster
     {
         internal sealed class MigrationKeyIterationFunctions
         {
+            internal sealed unsafe class MainStoreBloomFilter : IScanIteratorFunctions<SpanByte, SpanByte>
+            {
+                readonly MigrateSession session;
+                readonly HashSet<int> slots;
+                public long keyCount;
+                readonly int taskId;
+
+                internal MainStoreBloomFilter(MigrateSession session, HashSet<int> slots, int taskId)
+                {
+                    this.session = session;
+                    this.slots = slots;
+                    this.taskId = taskId;
+                }
+                public bool SingleReader(ref SpanByte key, ref SpanByte value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
+                {
+                    cursorRecordResult = CursorRecordResult.Accept; // default; not used here
+
+                    // Do not send key if it is expired
+                    if (ClusterSession.Expired(ref value))
+                        return true;
+
+                    var s = HashSlotUtils.HashSlot(ref key);
+                    // Transfer key if it belongs to slot that is currently being migrated
+                    if (slots.Contains(s))
+                        session._keys.TryHash(ref key);
+
+                    return true;
+                }
+
+                public bool ConcurrentReader(ref SpanByte key, ref SpanByte value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
+                    => SingleReader(ref key, ref value, recordMetadata, numberOfRecords, out cursorRecordResult);
+                public bool OnStart(long beginAddress, long endAddress) => true;
+                public void OnStop(bool completed, long numberOfRecords) { }
+                public void OnException(Exception exception, long numberOfRecords) { }
+            }
+
             internal sealed unsafe class MainStoreSendKeysInSlots : IScanIteratorFunctions<SpanByte, SpanByte>
             {
                 readonly MigrateSession session;
                 readonly HashSet<int> slots;
                 public long keyCount;
+                readonly int taskId;
 
-                internal MainStoreSendKeysInSlots(MigrateSession session, HashSet<int> slots)
+                internal MainStoreSendKeysInSlots(MigrateSession session, HashSet<int> slots, int taskId)
                 {
                     this.session = session;
                     this.slots = slots;
-                    session._gcs.InitializeIterationBuffer(TimeSpan.FromSeconds(60));
+                    this.taskId = taskId;
+                    session._gcs[taskId].InitializeIterationBuffer(TimeSpan.FromSeconds(60));
                 }
 
                 public bool SingleReader(ref SpanByte key, ref SpanByte value, RecordMetadata recordMetadata, long numberOfRecords, out CursorRecordResult cursorRecordResult)
@@ -40,7 +78,7 @@ namespace Garnet.cluster
                     if (slots.Contains(s))
                     {
                         keyCount++;
-                        session.WriteOrSendMainStoreKeyValuePair(ref key, ref value);
+                        session.WriteOrSendMainStoreKeyValuePair(ref key, ref value, taskId);
                     }
 
                     return true;
@@ -51,7 +89,7 @@ namespace Garnet.cluster
                 public bool OnStart(long beginAddress, long endAddress) => true;
                 public void OnStop(bool completed, long numberOfRecords)
                 {
-                    if (!session.HandleMigrateTaskResponse(session._gcs.SendAndResetIterationBuffer()))
+                    if (!session.HandleMigrateTaskResponse(session._gcs[taskId].SendAndResetIterationBuffer()))
                         return;
 
                     session._keys.ClearKeys();

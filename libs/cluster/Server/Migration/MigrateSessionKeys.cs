@@ -17,8 +17,9 @@ namespace Garnet.cluster
         /// Method used to migrate individual keys from main store to target node.
         /// Used with MIGRATE KEYS option
         /// </summary>
-        /// <returns>True on success, false otherwise</returns>
-        private bool MigrateKeysFromMainStore()
+        /// <param name="taskId"></param>
+        /// <returns></returns>
+        private bool MigrateKeysFromMainStore(int taskId = 0)
         {
             var bufferSize = 1 << 10;
             SectorAlignedMemory buffer = new(bufferSize, 1);
@@ -47,7 +48,7 @@ namespace Garnet.cluster
                     var key = pair.Key.SpanByte;
 
                     // Read value for key
-                    var status = localServerSession.BasicGarnetApi.Read_MainStore(ref key, ref input, ref o);
+                    var status = localServerSession[taskId].BasicGarnetApi.Read_MainStore(ref key, ref input, ref o);
 
                     // Check if found in main store
                     if (status == GarnetStatus.NOTFOUND)
@@ -66,7 +67,7 @@ namespace Garnet.cluster
                     }
 
                     // Write key to network buffer if it has not expired
-                    if (!ClusterSession.Expired(ref value) && !WriteOrSendMainStoreKeyValuePair(ref key, ref value))
+                    if (!ClusterSession.Expired(ref value) && !WriteOrSendMainStoreKeyValuePair(ref key, ref value, taskId))
                         return false;
 
                     // Reset SpanByte for next read if any but don't dispose heap buffer as we might re-use it
@@ -74,7 +75,7 @@ namespace Garnet.cluster
                 }
 
                 // Flush data in client buffer
-                if (!HandleMigrateTaskResponse(_gcs.SendAndResetIterationBuffer()))
+                if (!HandleMigrateTaskResponse(_gcs[taskId].SendAndResetIterationBuffer()))
                     return false;
 
                 DeleteKeys();
@@ -94,8 +95,9 @@ namespace Garnet.cluster
         /// Method used to migrate individual keys from object store to target node.
         /// Used with MIGRATE KEYS option
         /// </summary>
-        /// <returns>True on success, false otherwise</returns>
-        private bool MigrateKeysFromObjectStore()
+        /// <param name="taskId"></param>
+        /// <returns></returns>
+        private bool MigrateKeysFromObjectStore(int taskId = 0)
         {
             try
             {
@@ -114,7 +116,7 @@ namespace Garnet.cluster
 
                     ObjectInput input = default;
                     GarnetObjectStoreOutput value = default;
-                    var status = localServerSession.BasicGarnetApi.Read_ObjectStore(ref key, ref input, ref value);
+                    var status = localServerSession[taskId].BasicGarnetApi.Read_ObjectStore(ref key, ref input, ref value);
                     if (status == GarnetStatus.NOTFOUND)
                     {
                         // Transition key status back to QUEUED to unblock any writers
@@ -126,13 +128,13 @@ namespace Garnet.cluster
                     {
                         var objectData = GarnetObjectSerializer.Serialize(value.GarnetObject);
 
-                        if (!WriteOrSendObjectStoreKeyValuePair(key, objectData, value.GarnetObject.Expiration))
+                        if (!WriteOrSendObjectStoreKeyValuePair(key, objectData, value.GarnetObject.Expiration, taskId))
                             return false;
                     }
                 }
 
                 // Flush data in client buffer
-                if (!HandleMigrateTaskResponse(_gcs.SendAndResetIterationBuffer()))
+                if (!HandleMigrateTaskResponse(_gcs[taskId].SendAndResetIterationBuffer()))
                     return false;
             }
             finally
@@ -147,7 +149,7 @@ namespace Garnet.cluster
         /// <summary>
         /// Delete local copy of keys if _copyOption is set to false.
         /// </summary>
-        private void DeleteKeys()
+        private void DeleteKeys(int taskId = 0)
         {
             if (_copyOption)
             {
@@ -167,7 +169,7 @@ namespace Garnet.cluster
                     continue;
 
                 var key = mKey.Key.SpanByte;
-                _ = localServerSession.BasicGarnetApi.DELETE(ref key);
+                _ = localServerSession[taskId].BasicGarnetApi.DELETE(ref key);
 
                 // Set key as MIGRATED to allow allow all operations
                 _keys.UpdateStatus(mKey.Key, KeyMigrationStatus.MIGRATED);
@@ -178,26 +180,26 @@ namespace Garnet.cluster
         /// Method used to migrate keys from main and object stores.
         /// This method is used to process the MIGRATE KEYS transfer option.
         /// </summary>
-        public bool MigrateKeys(StoreType type = StoreType.All)
+        public bool MigrateKeys(StoreType type = StoreType.All, int taskId = 0)
         {
             try
             {
-                if (!CheckConnection())
+                if (!CheckConnection(taskId: taskId))
                     return false;
 
                 // Migrate main store keys
                 if (type == StoreType.All || type == StoreType.Main)
                 {
-                    _gcs.InitializeIterationBuffer(clusterProvider.storeWrapper.loggingFrequency);
-                    if (!MigrateKeysFromMainStore())
+                    _gcs[taskId].InitializeIterationBuffer(clusterProvider.storeWrapper.loggingFrequency);
+                    if (!MigrateKeysFromMainStore(taskId))
                         return false;
                 }
 
                 // Migrate object store keys
                 if (!clusterProvider.serverOptions.DisableObjects && (type == StoreType.All || type == StoreType.Object))
                 {
-                    _gcs.InitializeIterationBuffer(clusterProvider.storeWrapper.loggingFrequency);
-                    if (!MigrateKeysFromObjectStore())
+                    _gcs[taskId].InitializeIterationBuffer(clusterProvider.storeWrapper.loggingFrequency);
+                    if (!MigrateKeysFromObjectStore(taskId))
                         return false;
                 }
             }

@@ -474,7 +474,7 @@ namespace Tsavorite.core
         {
             if (untilAddress == -1)
                 untilAddress = store.Log.TailAddress;
-            return ScanCursor(ref cursor, count: long.MaxValue, scanFunctions, endAddress: untilAddress);
+            return ScanCursor(ref cursor, count: long.MaxValue, scanFunctions, endAddress: untilAddress, validateCursor: true);
         }
 
         /// <summary>

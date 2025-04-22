@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Garnet.common;
 using Garnet.server;
+using Tsavorite.core;
 
 namespace Garnet.cluster
 {
@@ -59,6 +60,20 @@ namespace Garnet.cluster
         /// </summary>
         /// <returns></returns>
         public bool IsNullOrEmpty() => KeyCount == 0;
+
+        /// <summary>
+        /// Hash key to bloomfilter
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public unsafe bool TryHash(ref SpanByte key)
+        {
+            var slot = (int)HashUtils.MurmurHash2x64A(key.ToPointer(), key.Length) & maxKeysMask;
+            var byteOffset = slot >> 3;
+            var bitOffset = slot & 7;
+            bitmap[byteOffset] = (byte)(bitmap[byteOffset] | (1UL << bitOffset));
+            return true;
+        }
 
         /// <summary>
         /// Add key to migration working set with corresponding status

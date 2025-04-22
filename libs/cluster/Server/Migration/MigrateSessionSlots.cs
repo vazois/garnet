@@ -17,45 +17,81 @@ namespace Garnet.cluster
         public bool MigrateSlotsDriver()
         {
             logger?.LogTrace("Initializing [MainStore] Iterator");
-            var storeTailAddress = clusterProvider.storeWrapper.store.Log.TailAddress;
             var bufferSize = 1 << clusterProvider.serverOptions.PageSizeBits();
 
             return clusterProvider.serverOptions.FastMigrate ? MigrateSlotsInline() : MigrateSlots();
 
             bool MigrateSlotsInline()
             {
-                MigrationKeyIterationFunctions.MainStoreSendKeysInSlots mainStoreSendKeysInSlots = new(this, _sslots, bufferSize: bufferSize);
-
                 try
                 {
-                    logger?.LogTrace("[{method}] - Initiating [MainStore] scan", nameof(MigrateSlotsInline));
-                    var mainStoreCursor = 0L;
+                    var storeBeginAddress = clusterProvider.storeWrapper.store.Log.BeginAddress;
+                    var storeTailAddress = clusterProvider.storeWrapper.store.Log.TailAddress;
+                    logger?.LogTrace("[{method}] - Initiating [MainStore] scan [{BeginAddress} - {TailAddress}]", nameof(MigrateSlotsInline), storeBeginAddress, storeTailAddress);
 
-                    // Iterate main store
-                    logger?.LogTrace("[{method}] - Start [MainStore] scan from {cursor}", mainStoreCursor, nameof(MigrateSlotsInline));
-                    _ = localServerSession.BasicGarnetApi.IterateMainStore(ref mainStoreSendKeysInSlots, ref mainStoreCursor, storeTailAddress);
-                    logger?.LogTrace("[{method}] - Scanned [MainStore] {cursor}", mainStoreCursor, nameof(MigrateSlotsInline));
+                    var migrateTasks = new Task[clusterProvider.serverOptions.ParallelMigrateTasks];
 
-                    // Signal target transmission completed and log stats for main store after migration completes
-                    if (!HandleMigrateTaskResponse(_gcs.CompleteMigrate(_sourceNodeId, _replaceOption, isMainStore: true)))
-                        return false;
+                    var i = 0;
+                    while (i < migrateTasks.Length)
+                    {
+                        var idx = i;
+                        migrateTasks[idx] = Task.Run(() => IterateMainStoreTask(idx));
+                        i++;
+                    }
+
+                    Task.WaitAll(migrateTasks, _cts.Token);
+
+                    foreach (var migrateTask in migrateTasks)
+                    {
+                        if (migrateTask.IsFaulted || migrateTask.IsCanceled)
+                            throw migrateTask.Exception;
+                    }
 
                     // Delete keys that have migrated
-                    Task.Run(() => ClusterManager.DeleteKeysInSlotsFromMainStore(localServerSession.BasicGarnetApi, _sslots));
+                    Task.Run(() => ClusterManager.DeleteKeysInSlotsFromMainStore(localServerSession[0].BasicGarnetApi, _sslots));
+
+                    Task<bool> IterateMainStoreTask(int taskId)
+                    {
+                        MigrationKeyIterationFunctions.MainStoreBloomFilter mainStoreBloomFilter = new(this, _sslots, taskId);
+                        MigrationKeyIterationFunctions.MainStoreSendKeysInSlots mainStoreSendKeysInSlots = new(this, _sslots, taskId);
+                        var range = (storeTailAddress - storeBeginAddress) / clusterProvider.storeWrapper.serverOptions.ParallelMigrateTasks;
+                        var workerStartAddress = storeBeginAddress + (taskId * range);
+                        var workerEndAddress = storeBeginAddress + ((taskId + 1) * range);
+
+                        workerStartAddress = workerStartAddress - (2 * bufferSize) > 0 ? workerStartAddress - (2 * bufferSize) : 0;
+                        workerEndAddress = workerEndAddress + (2 * bufferSize) < storeTailAddress ? workerEndAddress + (2 * bufferSize) : storeTailAddress;
+                        var cursor = workerStartAddress;
+
+                        // Build bloom filter
+                        logger?.LogTrace("[{method}] - Start [MainStore] bloom filter build", nameof(MigrateSlotsInline));
+                        _ = localServerSession[taskId].BasicGarnetApi.IterateMainStore(ref mainStoreBloomFilter, ref cursor, workerEndAddress);
+                        logger?.LogTrace("[{method}] - Completed [MainStore] bloom filter build in range [{from}, {until}] until {cursor}, found {keyCount} keys",
+                            nameof(MigrateSlotsInline), workerStartAddress, workerEndAddress, cursor, mainStoreSendKeysInSlots.keyCount);
+
+                        // Iterate main store
+                        cursor = workerStartAddress;
+                        logger?.LogTrace("[{method}] - Start [MainStore] scan", nameof(MigrateSlotsInline));
+                        _ = localServerSession[taskId].BasicGarnetApi.IterateMainStore(ref mainStoreSendKeysInSlots, ref cursor, workerEndAddress);
+                        logger?.LogTrace("[{method}] - Completed [MainStore] scan in range [{from}, {until}] until {cursor}, found {keyCount} keys",
+                            nameof(MigrateSlotsInline), workerStartAddress, workerEndAddress, cursor, mainStoreSendKeysInSlots.keyCount);
+
+                        // Signal target transmission completed and log stats for main store after migration completes
+                        if (!HandleMigrateTaskResponse(_gcs[taskId].CompleteMigrate(_sourceNodeId, _replaceOption, isMainStore: true)))
+                            return Task.FromResult(false);
+
+                        return Task.FromResult(true);
+                    }
                 }
                 catch (Exception ex)
                 {
                     logger?.LogError("{method} {ex}", nameof(MigrateSlotsInline), ex);
-                }
-                finally
-                {
-                    mainStoreSendKeysInSlots.Dispose();
                 }
                 return true;
             }
 
             bool MigrateSlots()
             {
+                var storeTailAddress = clusterProvider.storeWrapper.store.Log.TailAddress;
                 MigrationKeyIterationFunctions.MainStoreGetKeysInSlots mainStoreGetKeysInSlots = new(this, _sslots, bufferSize: bufferSize);
 
                 try
@@ -66,7 +102,7 @@ namespace Garnet.cluster
                     {
                         // Iterate main store
                         logger?.LogTrace("Start [MainStore] scan from {cursor}", mainStoreCursor);
-                        _ = localServerSession.BasicGarnetApi.IterateMainStore(ref mainStoreGetKeysInSlots, ref mainStoreCursor, storeTailAddress);
+                        _ = localServerSession[0].BasicGarnetApi.IterateMainStore(ref mainStoreGetKeysInSlots, ref mainStoreCursor, storeTailAddress);
                         logger?.LogTrace("Scanned [MainStore] {cursor}", mainStoreCursor);
 
                         // If did not acquire any keys stop scanning
@@ -75,7 +111,7 @@ namespace Garnet.cluster
 
                         // Safely migrate keys to target node
                         logger?.LogTrace("Start processing batch");
-                        if (!MigrateKeys(StoreType.Main))
+                        if (!MigrateKeys(StoreType.Main, taskId: 0))
                         {
                             logger?.LogError("IOERR Migrate keys failed.");
                             Status = MigrateState.FAIL;
@@ -88,7 +124,7 @@ namespace Garnet.cluster
                     }
 
                     // Signal target transmission completed and log stats for main store after migration completes
-                    if (!HandleMigrateTaskResponse(_gcs.CompleteMigrate(_sourceNodeId, _replaceOption, isMainStore: true)))
+                    if (!HandleMigrateTaskResponse(_gcs[0].CompleteMigrate(_sourceNodeId, _replaceOption, isMainStore: true)))
                         return false;
                 }
                 finally
@@ -111,7 +147,7 @@ namespace Garnet.cluster
                         {
                             // Iterate object store
                             logger?.LogTrace("Start [ObjectStore] scan from {cursor}", objectStoreCursor);
-                            _ = localServerSession.BasicGarnetApi.IterateObjectStore(ref objectStoreGetKeysInSlots, ref objectStoreCursor, objectStoreTailAddress);
+                            _ = localServerSession[0].BasicGarnetApi.IterateObjectStore(ref objectStoreGetKeysInSlots, ref objectStoreCursor, objectStoreTailAddress);
                             logger?.LogTrace("Scanned [ObjectStore] until {cursor}", objectStoreCursor);
 
                             // If did not acquire any keys stop scanning
@@ -119,7 +155,7 @@ namespace Garnet.cluster
                                 break;
 
                             // Safely migrate keys to target node
-                            if (!MigrateKeys(StoreType.Object))
+                            if (!MigrateKeys(StoreType.Object, taskId: 0))
                             {
                                 logger?.LogError("IOERR Migrate keys failed.");
                                 Status = MigrateState.FAIL;
@@ -131,7 +167,7 @@ namespace Garnet.cluster
                         }
 
                         // Signal target transmission completed and log stats for object store after migration completes
-                        if (!HandleMigrateTaskResponse(_gcs.CompleteMigrate(_sourceNodeId, _replaceOption, isMainStore: false)))
+                        if (!HandleMigrateTaskResponse(_gcs[0].CompleteMigrate(_sourceNodeId, _replaceOption, isMainStore: false)))
                             return false;
                     }
                     finally
