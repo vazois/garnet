@@ -596,6 +596,7 @@ namespace Resp.benchmark
                         OpType.PING => ["PING"],
                         OpType.GET => ["GET", req.GenerateKey()],
                         OpType.SET => ["SET", req.GenerateKey(), req.GenerateValue()],
+                        OpType.INCR => ["INCR", req.GenerateKey()],
                         OpType.SETEX => ["SETEX", req.GenerateKey(), opts.Ttl.ToString(), req.GenerateValue()],
                         OpType.DEL => ["DEL", req.GenerateKey()],
                         OpType.SETBIT => ["SETBIT", req.GenerateKey(), req.GenerateBitOffset()],
@@ -615,6 +616,7 @@ namespace Resp.benchmark
                         OpType.PING => await c.ExecuteAsync(request),
                         OpType.GET => await c.ExecuteAsync(request),
                         OpType.SET => await c.ExecuteAsync(request),
+                        OpType.INCR => await c.ExecuteAsync(request),
                         OpType.SETEX => await c.ExecuteAsync(request),
                         OpType.DEL => await c.ExecuteAsync(request),
                         OpType.SETBIT => await c.ExecuteAsync(request),
@@ -712,6 +714,7 @@ namespace Resp.benchmark
                     OpType.PING => ["PING"],
                     OpType.GET => ["GET", req.GenerateKey()],
                     OpType.SET => ["SET", req.GenerateKey(), req.GenerateValue()],
+                    OpType.INCR => ["INCR", req.GenerateKey()],
                     OpType.SETEX => ["SETEX", req.GenerateKey(), opts.Ttl.ToString(), req.GenerateValue()],
                     OpType.DEL => ["DEL", req.GenerateKey()],
                     OpType.SETBIT => ["SETBIT", req.GenerateKey(), req.GenerateBitOffset()],
@@ -735,6 +738,9 @@ namespace Resp.benchmark
                         c.ExecuteBatch(request);
                         break;
                     case OpType.SET:
+                        c.ExecuteBatch(request);
+                        break;
+                    case OpType.INCR:
                         c.ExecuteBatch(request);
                         break;
                     case OpType.SETEX:
