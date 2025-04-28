@@ -44,6 +44,18 @@ namespace Resp.benchmark
                             InitializeRNG(keySeed: i);
                             if (!GenerateBatch(i, BatchCount / 2, BatchCount, OpType.ZREM)) goto resizeBuffer;
                             break;
+                        case OpType.LPUSHREM:
+                            InitializeRNG(keySeed: i);
+                            if (!GenerateBatch(i, 0, BatchCount / 2, OpType.LPUSH)) goto resizeBuffer;
+                            InitializeRNG(keySeed: i);
+                            if (!GenerateBatch(i, BatchCount / 2, BatchCount, OpType.LREM)) goto resizeBuffer;
+                            break;
+                        case OpType.PFADDCOUNT:
+                            InitializeRNG(keySeed: i);
+                            if (!GenerateBatch(i, 0, BatchCount / 2, OpType.PFADD)) goto resizeBuffer;
+                            InitializeRNG(keySeed: i);
+                            if (!GenerateBatch(i, BatchCount / 2, BatchCount, OpType.PFCOUNT)) goto resizeBuffer;
+                            break;
                         case OpType.GEOADDREM:
                             InitializeRNG(keySeed: i);
                             if (!GenerateBatch(i, 0, BatchCount / 2, OpType.GEOADD)) goto resizeBuffer;
@@ -114,6 +126,8 @@ namespace Resp.benchmark
                 OpType.GEOADD => System.Text.Encoding.ASCII.GetBytes($"*5\r\n$6\r\nGEOADD\r\n"),
                 OpType.ZREM => System.Text.Encoding.ASCII.GetBytes($"*3\r\n$4\r\nZREM\r\n"),
                 OpType.ZCARD => System.Text.Encoding.ASCII.GetBytes($"*2\r\n$5\r\nZCARD\r\n"),
+                OpType.LPUSH => System.Text.Encoding.ASCII.GetBytes($"*3\r\n$5\r\nLPUSH\r\n"),
+                OpType.LREM => System.Text.Encoding.ASCII.GetBytes($"*4\r\n$4\r\nLREM\r\n"),
                 OpType.SETBIT => System.Text.Encoding.ASCII.GetBytes($"*4\r\n$6\r\nSETBIT\r\n"),
                 OpType.GETBIT => System.Text.Encoding.ASCII.GetBytes($"*3\r\n$6\r\nGETBIT\r\n"),
                 OpType.BITCOUNT => System.Text.Encoding.ASCII.GetBytes($"*2\r\n$8\r\nBITCOUNT\r\n"),
@@ -149,6 +163,8 @@ namespace Resp.benchmark
                 case OpType.ZADD:
                 case OpType.ZREM:
                 case OpType.ZCARD:
+                case OpType.LPUSH:
+                case OpType.LREM:
                 case OpType.GEOADD:
                 case OpType.PING:
                 case OpType.INCR:
@@ -231,6 +247,7 @@ namespace Resp.benchmark
                 }
                 lens[i] = (int)(curr - b);
             }
+
             return true;
         }
     }

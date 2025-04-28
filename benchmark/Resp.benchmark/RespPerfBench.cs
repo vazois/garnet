@@ -259,7 +259,6 @@ namespace Resp.benchmark
             int ttl = 0)
         {
             ReqGen rg;
-
             if (run_rg != null)
                 rg = run_rg;
             else

@@ -237,6 +237,10 @@ namespace Resp.benchmark
                 case OpType.ZADD:
                 case OpType.ZREM:
                 case OpType.ZADDREM:
+                case OpType.LPUSH:
+                case OpType.LREM:
+                case OpType.LPUSHREM:
+                case OpType.PFADDCOUNT:
                 case OpType.ZCARD:
                 case OpType.GEOADD:
                 case OpType.GEOADDREM:

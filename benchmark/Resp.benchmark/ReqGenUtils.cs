@@ -40,6 +40,8 @@ namespace Resp.benchmark
                 case OpType.ZADD:
                 case OpType.ZREM:
                 case OpType.ZCARD:
+                case OpType.LPUSH:
+                case OpType.LREM:
                 case OpType.GEOADD:
                 case OpType.PFADD:
                     if (!WriteKey(ref curr, vend))
@@ -124,6 +126,14 @@ namespace Resp.benchmark
             {
                 case OpType.ZADD:
                 case OpType.ZREM:
+                case OpType.LPUSH:
+                    n = Start + r.Next(DbSize);
+                    if (!WriteInteger(n, ref curr, vend))
+                        return false;
+                    break;
+                case OpType.LREM:
+                    if (!WriteInteger(0, ref curr, vend))
+                        return false;
                     n = Start + r.Next(DbSize);
                     if (!WriteInteger(n, ref curr, vend))
                         return false;
@@ -263,11 +273,13 @@ namespace Resp.benchmark
             switch (opType)
             {
                 case OpType.ZADD:
+                case OpType.LPUSH:
                     n = Start + r.Next(DbSize);
                     if (!WriteInteger(n, ref curr, vend))
                         return false;
                     break;
                 case OpType.ZREM:
+                case OpType.LREM:
                 case OpType.PFADD:
                 case OpType.MSET:
                 case OpType.INCR:
