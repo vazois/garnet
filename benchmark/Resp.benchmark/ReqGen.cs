@@ -84,6 +84,7 @@ namespace Resp.benchmark
 
             if (zipf)
             {
+                Console.WriteLine("Using Zipf Generator!");
                 this.zipf = zipf;
                 zipfg = new ZipfGenerator(new RandomGenerator(), DbSize, 0.99);
             }

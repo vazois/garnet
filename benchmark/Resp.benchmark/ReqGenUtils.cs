@@ -356,14 +356,7 @@ namespace Resp.benchmark
             return true;
         }
 
-        private bool WriteKey(ref byte* curr, byte* vend)
-        {
-            int key = randomGen ? keyRandomGen.Next(Start, DbSize) : (Start + keyIndex++);
-            byte[] keyData = Encoding.ASCII.GetBytes(key.ToString().PadLeft(keyLen, 'X'));
-            return WriteStringBytes(ref curr, vend, keyData);
-        }
-
-        private bool WriteKey(ref byte* curr, byte* vend, out byte[] keyData)
+        private int GetKey()
         {
             int key;
             if (randomGen)
@@ -375,7 +368,19 @@ namespace Resp.benchmark
             }
             else
                 key = Start + keyIndex++;
+            return key;
+        }
 
+        private bool WriteKey(ref byte* curr, byte* vend)
+        {
+            int key = GetKey();
+            byte[] keyData = Encoding.ASCII.GetBytes(key.ToString().PadLeft(keyLen, 'X'));
+            return WriteStringBytes(ref curr, vend, keyData);
+        }
+
+        private bool WriteKey(ref byte* curr, byte* vend, out byte[] keyData)
+        {
+            int key = GetKey();
             keyData = Encoding.ASCII.GetBytes(key.ToString().PadLeft(keyLen, numericValue ? '0' : 'X'));
             return WriteStringBytes(ref curr, vend, keyData);
         }
