@@ -256,14 +256,15 @@ namespace Resp.benchmark
             bool randomServe = true,
             int keyLen = default,
             int valueLen = default,
-            int ttl = 0)
+            int ttl = 0,
+            bool zipf = false)
         {
             ReqGen rg;
             if (run_rg != null)
                 rg = run_rg;
             else
             {
-                rg = new ReqGen(Start, opts.DbSize, TotalOps, BatchSize, opType, randomGen, randomServe, keyLen, valueLen, ttl: ttl);
+                rg = new ReqGen(Start, opts.DbSize, TotalOps, BatchSize, opType, randomGen, randomServe, keyLen, valueLen, ttl: ttl, zipf: zipf);
                 rg.Generate();
             }
 

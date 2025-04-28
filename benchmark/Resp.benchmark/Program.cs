@@ -271,7 +271,8 @@ namespace Resp.benchmark
                         keyLen: keyLen,
                         valueLen: valueLen,
                         BatchSize: BatchSize,
-                        ttl: opts.Ttl);
+                        ttl: opts.Ttl,
+                        zipf: opts.zipf);
             }
         }
 
