@@ -285,6 +285,7 @@ namespace Garnet.client
             if (Interlocked.Increment(ref disposed) > 1) return;
 
             networkSender?.ReturnResponseObject();
+            networkSender?.Dispose();
             socket?.Dispose();
             networkHandler?.Dispose();
             if (!usingManagedNetworkPool) networkPool.Dispose();
