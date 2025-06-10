@@ -41,7 +41,7 @@ namespace Garnet.cluster
             }
             catch (Exception ex)
             {
-                logger?.LogError(ex, "Waiting for main store metadata to settle");
+                logger?.LogError(ex, "Failed to validate metadata for main store");
                 return false;
             }
         }
@@ -64,7 +64,7 @@ namespace Garnet.cluster
             }
             catch (Exception ex)
             {
-                logger?.LogError(ex, "Waiting for object store metadata to settle");
+                logger?.LogError(ex, "Failed to validate metadata for object store");
                 return false;
             }
         }
