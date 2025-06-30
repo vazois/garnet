@@ -27,8 +27,8 @@ namespace BDN.benchmark.Operations
         public IEnumerable<OperationParams> OperationParamsProvider()
         {
             yield return new(false, false);
-            yield return new(true, false);
-            yield return new(false, true);
+            //yield return new(true, false);
+            //yield return new(false, true);
         }
 
         /// <summary>

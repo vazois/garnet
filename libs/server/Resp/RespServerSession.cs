@@ -269,6 +269,15 @@ namespace Garnet.server
             }
         }
 
+        public void DirectGET(byte* curr, int len)
+        {
+            var key = SpanByte.FromPinnedPointer(curr, len);
+            var resp = stackalloc byte[1024];
+            var o = new SpanByteAndMemory(resp, 1024);
+            RawStringInput input = default;
+            _ = basicGarnetApi.GET(ref key, ref input, ref o);
+        }
+
         /// <summary>
         /// Get all active database sessions
         /// </summary>

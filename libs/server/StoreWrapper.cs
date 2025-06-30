@@ -578,6 +578,11 @@ namespace Garnet.server
             databaseManager.FlushAllDatabases(unsafeTruncateLog);
         }
 
+        public void FlushAndEvict()
+        {
+            store.Log.FlushAndEvict(true);
+        }
+
         /// <summary>
         /// Try to swap between two database instances
         /// </summary>
