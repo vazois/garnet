@@ -57,6 +57,9 @@ namespace BDN.benchmark.Operations
                 EnableLua = true,
                 DisablePubSub = true,
                 LuaOptions = new(LuaMemoryManagementMode.Native, "", Timeout.InfiniteTimeSpan, LuaLoggingMode.Enable, []),
+                // MemorySize = "1024",
+                // PageSize = "512",
+                // EnableStorageTier = true,
             };
 
             if (Params.useAof)
