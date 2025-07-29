@@ -23,6 +23,7 @@ namespace Garnet.cluster
         readonly ReplicationSyncManager replicationSyncManager;
 
         readonly CancellationTokenSource ctsRepManager = new();
+        readonly TimeSpan replicaSyncTimeout;
 
         readonly int pageSizeBits;
 
@@ -165,6 +166,7 @@ namespace Garnet.cluster
             // After initializing replication history propagate replicationId to ReplicationLogCheckpointManager
             SetPrimaryReplicationId();
             replicaReplayTaskCts = CancellationTokenSource.CreateLinkedTokenSource(ctsRepManager.Token);
+            replicaSyncTimeout = TimeSpan.FromSeconds(clusterProvider.serverOptions.ReplicaSyncTimeout);
         }
 
         /// <summary>
