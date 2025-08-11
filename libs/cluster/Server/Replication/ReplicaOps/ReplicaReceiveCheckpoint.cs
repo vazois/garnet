@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Garnet.client;
 using Garnet.cluster.Server.Replication;
@@ -72,6 +73,7 @@ namespace Garnet.cluster
             {
                 Debug.Assert(IsRecovering);
                 GarnetClientSession gcs = null;
+                ctsAttach ??= new CancellationTokenSource();
                 try
                 {
                     // Immediately try to connect to a primary, so we FAIL
@@ -144,7 +146,7 @@ namespace Garnet.cluster
                         PrimaryReplId,
                         cEntry.ToByteArray(),
                         storeWrapper.appendOnlyFile.BeginAddress,
-                        storeWrapper.appendOnlyFile.TailAddress).WaitAsync(replicaAttachTimeout, ctsRepManager.Token).ConfigureAwait(false);
+                        storeWrapper.appendOnlyFile.TailAddress).WaitAsync(replicaAttachTimeout, ctsAttach.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -167,6 +169,11 @@ namespace Garnet.cluster
                     }
                     recvCheckpointHandler?.Dispose();
                     gcs?.Dispose();
+                    if (!ctsAttach.TryReset())
+                    {
+                        ctsAttach.Dispose();
+                        ctsAttach = new CancellationTokenSource();
+                    }
                 }
                 return null;
             }

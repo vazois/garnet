@@ -27,6 +27,7 @@ namespace Garnet.cluster
 
         readonly CancellationTokenSource ctsRepManager = new();
         readonly TimeSpan replicaAttachTimeout;
+        CancellationTokenSource ctsAttach = new();
 
         readonly int pageSizeBits;
 
@@ -454,6 +455,18 @@ namespace Garnet.cluster
             finally
             {
                 recoveryStateChangeLock.WriteUnlock();
+            }
+        }
+
+        public void ResetRecovery()
+        {
+            switch (currentRecoveryStatus)
+            {
+                case RecoveryStatus.ClusterReplicate:
+                case RecoveryStatus.ReplicaOfNoOne:
+                case RecoveryStatus.CheckpointRecoveredAtReplica:
+                    ctsAttach.Cancel();
+                    break;
             }
         }
 
