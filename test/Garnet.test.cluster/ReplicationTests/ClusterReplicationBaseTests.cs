@@ -1888,7 +1888,7 @@ namespace Garnet.test.cluster
             }
         }
 
-        [Test, Order(27)]
+        [Test, Order(29)]
         [Category("CLUSTER")]
         [Category("REPLICATION")]
         public void ClusterReplicationDivergentHistoryWithoutCheckpoint()
@@ -1974,6 +1974,79 @@ namespace Garnet.test.cluster
                     ClassicAssert.AreEqual("OK", (string)resp);
                     resp = server.Execute("GET", key);
                     ClassicAssert.AreEqual(key, (string)resp);
+                }
+            }
+        }
+
+        [Test, Order(29)]
+        [Category("CLUSTER")]
+        [Category("REPLICATION")]
+        public void ClusterReplicationCustomTxnProc()
+        {
+            var replica_count = 1;// Per primary
+            var primary_count = 1;
+            var nodes_count = primary_count + (primary_count * replica_count);
+            var primaryNodeIndex = 0;
+            var replicaNodeIndex = 1;
+
+            context.CreateInstances(nodes_count, disableObjects: false, enableAOF: true, useTLS: useTLS, asyncReplay: asyncReplay);
+            context.CreateConnection(useTLS: useTLS);
+
+            var primaryServer = context.clusterTestUtils.GetServer(primaryNodeIndex);
+            var replicaServer = context.clusterTestUtils.GetServer(replicaNodeIndex);
+
+            // Register custom procedure
+            context.nodes[primaryNodeIndex].Register.NewTransactionProc("BULKINCRBY", () => new BulkIncrementBy(), new RespCommandsInfo { Arity = -3 });
+            context.nodes[replicaNodeIndex].Register.NewTransactionProc("BULKINCRBY", () => new BulkIncrementBy(), new RespCommandsInfo { Arity = -3 });
+
+            // Setup cluster
+            context.clusterTestUtils.AddDelSlotsRange(primaryNodeIndex, [(0, 16383)], addslot: true, logger: context.logger);
+            context.clusterTestUtils.SetConfigEpoch(primaryNodeIndex, primaryNodeIndex + 1, logger: context.logger);
+            context.clusterTestUtils.SetConfigEpoch(replicaNodeIndex, replicaNodeIndex + 1, logger: context.logger);
+            context.clusterTestUtils.Meet(primaryNodeIndex, replicaNodeIndex, logger: context.logger);
+            context.clusterTestUtils.WaitUntilNodeIsKnown(primaryNodeIndex, replicaNodeIndex, logger: context.logger);
+            context.clusterTestUtils.WaitUntilNodeIsKnown(replicaNodeIndex, primaryNodeIndex, logger: context.logger);
+
+            // Attach replica
+            var resp = context.clusterTestUtils.ClusterReplicate(replicaNodeIndex, primaryNodeIndex, logger: context.logger);
+            ClassicAssert.AreEqual("OK", resp);
+
+            string[] keys = ["{_}a", "{_}b", "{_}c"];
+            string[] values = ["10", "15", "20"];
+            ExecuteBulkIncrement(primaryServer, keys, values);
+
+            // Check keys at primary
+            for (var i = 0; i < keys.Length; i++)
+            {
+                resp = context.clusterTestUtils.GetKey(primaryNodeIndex, Encoding.ASCII.GetBytes(keys[i]), out _, out _, out _);
+                ClassicAssert.AreEqual(values[i], resp);
+            }
+            context.clusterTestUtils.WaitForReplicaAofSync(primaryNodeIndex, replicaNodeIndex, context.logger);
+
+            // Check keys at replica
+            for (var i = 0; i < keys.Length; i++)
+            {
+                resp = context.clusterTestUtils.GetKey(replicaNodeIndex, Encoding.ASCII.GetBytes(keys[i]), out _, out _, out _);
+                ClassicAssert.AreEqual(values[i], resp);
+            }
+
+            void ExecuteBulkIncrement(IServer server, string[] keys, string[] values)
+            {
+                try
+                {
+                    var args = new object[1 + (keys.Length * 2)];
+                    args[0] = keys.Length;
+                    for (var i = 0; i < keys.Length; i++)
+                    {
+                        args[1 + (i * 2)] = keys[i];
+                        args[1 + (i * 2) + 1] = values[i];
+                    }
+                    var resp = server.Execute("BULKINCRBY", args);
+                    ClassicAssert.AreEqual("OK", (string)resp);
+                }
+                catch (Exception ex)
+                {
+                    Assert.Fail(ex.Message);
                 }
             }
         }
